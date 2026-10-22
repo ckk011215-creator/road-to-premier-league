@@ -1,0 +1,23 @@
+{
+  "engine": [
+    "data.js",
+    "engine-core.js",
+    "content.js",
+    "engine-youth.js",
+    "engine-pro.js",
+    "engine-match.js",
+    "engine-ach.js",
+    "engine-life.js",
+    "engine-world.js",
+    "engine-save.js",
+    "engine-perks.js",
+    "engine-story.js",
+    "engine-squad.js",
+    "engine-cup.js"
+  ],
+  "ui": [
+    "leaderboard.js",
+    "ui-pixel.js",
+    "ui.js"
+  ]
+}

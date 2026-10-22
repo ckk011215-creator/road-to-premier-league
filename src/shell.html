@@ -1,0 +1,55 @@
+<title>Road to Premier League｜英超之路</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+HK:wght@400;500;700;900&family=Press+Start+2P&display=swap">
+<style>/*CSS*/</style>
+
+<div id="start" hidden>
+  <div class="hero"><canvas id="pitch" aria-hidden="true"></canvas><div class="wrap">
+    <div class="eyebrow">英格蘭足球生涯模擬・初版</div>
+    <h1 class="title en">Road to<br><em>Premier League</em></h1>
+    <div class="title-zh">英超之路</div>
+    <p class="lede">六歲，星期日早上的泥地足球。其後是學院試訓、保留或被放棄、16 歲 Scholarship、17 歲職業合約。每一個決定，都會伴隨你一生。</p>
+    <div class="hero-px" aria-hidden="true"><img id="hp1" alt=""><img id="hp2" alt=""><img id="hpb" class="b" alt=""></div>
+    <div class="ladder"><span>草根</span><span>學院</span><span>學徒</span><span>外借</span><span>英超</span></div>
+  </div></div>
+  <div class="wrap"><div class="startbtns" id="startbtns"></div></div>
+</div>
+
+<div id="create" hidden></div>
+
+<div id="game" hidden>
+  <aside class="side" aria-label="球員">
+    <div class="side-card" id="side-card"></div>
+    <div class="side-m" id="side-m"></div>
+    <nav class="snav" aria-label="分頁">
+      <button data-t="home" aria-current="page"><i>⌂</i>主頁</button>
+      <button data-t="me"><i>◉</i>球員</button>
+      <button data-t="plan"><i>⚡</i>訓練</button>
+      <button data-t="mates"><i>☰</i>同屆</button>
+      <button data-t="life"><i>£</i>生活</button>
+      <button data-t="career"><i>★</i>生涯</button>
+    </nav>
+    <button class="side-menu" id="t-menu" aria-haspopup="dialog">選單</button>
+  </aside>
+  <main class="gmain">
+    <header class="gtop"><div><h1 id="g-title">主頁</h1><p id="g-date"></p></div>
+      <div class="gact"><button class="btn sm" id="b-year"><b>模擬至學年末</b></button><button class="btn sm" id="b-auto"><b>模擬至學期末</b></button><button class="btn main sm" id="b-adv"><b>推進 ▸</b></button></div></header>
+    <div id="g-view"></div>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="m-title"><div class="mbox">
+  <header class="mhead"><span id="m-title"></span></header>
+  <div class="mbody" id="m-body"><div id="feed"></div><div id="act"></div></div>
+</div></div>
+
+<div class="sheet" id="menu" hidden role="dialog" aria-modal="true" aria-labelledby="menu-h"><div class="sheet-in"><div class="wrap">
+  <h2 id="menu-h">選單</h2><div id="menu-body"></div>
+</div></div></div>
+
+<div id="end" hidden></div>
+
+<script>/*JS*/</script>
