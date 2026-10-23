@@ -784,3 +784,8 @@ svg.crest{ display:inline-block; vertical-align:-0.2em; margin-right:6px; flex:n
 td.cl{ white-space:nowrap } .pc-club small.kitn{ margin-left:6px; opacity:.7; font-size:11px }
 ol.steps{ margin:6px 0 10px; padding-left:1.3em; display:grid; gap:4px }
 .sync-code{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:17px; letter-spacing:.06em; margin:6px 0; word-break:break-all }
+
+/* ---------- 賽事進程（入球及撲救） ---------- */
+.mr-log.tk li{ grid-template-columns:2.6em 1.6em minmax(0,1fr) !important }
+.mr-log.tk b, .mr-log.tk span{ grid-column:auto !important; grid-row:auto !important }
+.mr-log.tk span{ color:var(--ink) } .mr-log.tk li.gf{ background:color-mix(in srgb, var(--pitch) 14%, var(--soft)) }

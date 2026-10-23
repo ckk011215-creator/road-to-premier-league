@@ -32,7 +32,7 @@ function addClubsOf(W, lg){
 }
 const club = id => S.W.clubs[id];
 const clubsIn = lg => Object.values(S.W.clubs).filter(c => c.lg===lg);
-const cName = id => id && S.W.clubs[id] ? S.W.clubs[id].n : '';
+const cName = id => !id ? '' : S.W.clubs[id] ? S.W.clubs[id].n : (typeof EXT_CLUBS!=='undefined' && EXT_CLUBS[id]) ? EXT_CLUBS[id].n : '';
 const catN = c => ({1:'Category 1',2:'Category 2',3:'Category 3',0:'沒有學院'})[c];
 
 /* ---------- 年齡同時間 ---------- */

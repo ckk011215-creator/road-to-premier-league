@@ -1,5 +1,5 @@
 /* ================= 職業生涯（包括非聯賽） ================= */
-const GAME_VER = '1.2.0';
+const GAME_VER = '1.3.0';
 const ROLES = ['主力','輪換','替補','未入名單'];
 const ROLE_MUL = [1, 0.6, 0.3, 0.1];
 
@@ -63,10 +63,10 @@ function preseason(next){
   UI.card('', `${S.year} 年夏天・${S.age} 歲`, `${c.n}（${LG[c.lg].n}）｜${cTxt}<br>季前預計角色：<b>${roleTxt()}</b><br>主帥${c.mgr?c.mgr.n:''}：${fitTxt(c.id)}${S.pro.semi?'<br>半職業球員：日間上班，晚上訓練。':''}`);
   fx({ fat:-25 });
   S.ss = { app:0, g:0, a:0, cs:0, rt:0 };
-  ensureSquads(); seasonTableInit(); migrateAgent(); lifeRenew(); cupInit();
+  ensureSquads(); seasonTableInit(); migrateAgent(); lifeRenew(); cupInit(); euroInit();
   if(!S.pro.semi) setObjectives();
   if(hasPerk('leader')){ S.pro.trust = clamp(S.pro.trust+4, 0, 100); S.m.mates = clamp((S.m.mates||50)+4, 0, 100); }
-  runSeq([abroadPreseason, rivalPreseason, squadNews, clubNews, brandStep, maybeEvent(55)], next);
+  runSeq([abroadPreseason, superCup, rivalPreseason, squadNews, clubNews, brandStep, maybeEvent(55)], next);
 }
 function termEndPro(next){
   settleMeters();
@@ -170,6 +170,7 @@ function seasonEnd(done){
     S.cupWin = { fa:fa.id, lc:lc.id };
     if(fa.id===c.id){ addHonour('FA Cup 冠軍', { club:c.id, role:played?row.r:3 }); UI.card('gold','FA Cup 冠軍', `溫布萊球場決賽，${c.n}捧起 FA Cup！`); logLine(`${S.year+1} 年 FA Cup 冠軍`); }
     if(lc.id===c.id){ addHonour('聯賽盃冠軍', { club:c.id, role:played?row.r:3 }); UI.card('gold','聯賽盃冠軍', `${c.n}贏得聯賽盃。`); } }
+  euroSeasonEnd(T);
   const cupT = S.season.cup;
   if(cupT && cupT.app) UI.card('', '盃賽數據', `本季盃賽出場 ${cupT.app} 次，入球 ${cupT.g}，助攻 ${cupT.a}。`);
   row.cup = cupT || null;
@@ -191,11 +192,13 @@ function seasonEnd(done){
   }
   aw.forEach(t => { addHonour(t, { lg:lgKey }); logLine(`${S.year+1} 年${t}`); });
   if(aw.length) UI.card('gold','年度獎項', aw.join('<br>'));
+  worldAward(row);
   if(S.pro.captain && lgKey==='PL' && !S.pro.loan) addHonour('英超隊長', { lg:'PL', silent:true });
   dealsPayout();
+  contractBonus(row);
   seasonPaper({ row, pos, mv, aw, champ, lgKey, c });
   legendSeason();
-  runSeq([intlDuty, cohortNews, contractTime], done);
+  runSeq([intlDuty, clubWorldCup, cohortNews, contractTime], done);
 }
 function cohortNews(next){ const news = updateCohort(); if(news.length) UI.card('cohort','同屆消息', news.slice(0,4).map(esc).join('<br>')); next(); }
 
@@ -245,11 +248,14 @@ function seasonGate(k){ S.pro.gate = S.pro.gate && S.pro.gate.y===S.year ? S.pro
 function offerCount(fa){ const rt = S.pro.lastRt; return Math.max(0, (rt>=7.4?ri(1,3):rt>=7.0?ri(0,2):ri(0,1)) + (fa?1:0) - (S.age>=33?1:0) + (S.m.fans>=70 && rt>=7.0 ? 1 : 0)); }
 function offerOpt(x, yrs, note){
   const w = wageFor(x.id), role = ROLES[roleFor(x)]; mgrOf(x.id);
-  return { t:`${note||'簽約'}${x.n}`, s:`${isAbroadLg(x.lg) ? `${CTY[LG[x.lg].cty].n}・` : ''}${LG[x.lg].n}｜${yrs} 年｜週薪 ${money(w)}｜預計${role}｜主帥打法：${fitTxt(x.id)}`, confirm:x.id!==S.pro.club, f:()=>sign(x, yrs, w) };
+  const opt = { t:`${note||'簽約'}${x.n}`, s:`${isAbroadLg(x.lg) ? `${CTY[LG[x.lg].cty].n}・` : ''}${LG[x.lg].n}｜${yrs} 年｜週薪 ${money(w)}｜預計${role}｜主帥打法：${fitTxt(x.id)}` };
+  opt.f = () => negotiate(x, yrs, w, opt);
+  return opt;
 }
 function sign(x, yrs, w){
   const moved = x.id!==S.pro.club, oldId = S.pro.club;
   if(moved) legendFarewell(oldId);
+  if(!S.pro.keepTerms) S.pro.terms = null; S.pro.keepTerms = false;
   S.pro.club = x.id; S.pro.cyrs = yrs; S.pro.wage = w; S.pro.loan = null; S.pro.semi = x.lg==='NON'; S.pro.wasNL = false; proMark(x);
   if(moved){ S.pro.trust = 48+leadAdj(); S.pro.captain = false; S.pro.num = numFor(x.id); S.pro.numClub = x.id; if(!isAbroadLg(x.lg)) logLine(`${S.age} 歲加盟${x.n}（${LG[x.lg].short}）`); }
   UI.card('good', moved?`加盟${x.n}`:`與${x.n}續約`, `${yrs} 年合約，週薪 ${money(w)}。`);
@@ -279,7 +285,7 @@ function contractTime(done){
   const young = age<=21 && roleCalc().r>=2 && !S.pro.semi;
   if(S.pro.cyrs>0){
     opts.push({ t:`留在${cur.n}`, main:true, s:`合約尚餘 ${S.pro.cyrs} 年`, f:()=>{ UI.card('', '留隊', `你留在${cur.n}。`); done(); } });
-    const ag = agentOffers(), lst = S.pro.listed===S.year ? 2 : 0, n = offerCount(false) + ag + lst + (isAbroad() && S.flags.homeWish===S.year ? 1 : 0);
+    const ag = agentOffers(), lst = S.pro.listed===S.year ? 2 : 0, n = offerCount(false) + ag + lst + (isAbroad() && S.flags.homeWish===S.year ? 1 : 0) + (S.pro.terms && S.pro.terms.rc && S.pro.lastRt>=7.0 ? 1 : 0);
     if(lst) UI.card('', '轉會要求', `你早前已向${cur.n}提出轉會要求。`);
     if(n>0){ const offs = genOffers(n, ag>0 || lst>0).filter(x => x.str > cur.str+1 || S.pro.lastRt>=7.2 || ag>0 || lst>0 || (isAbroad() && S.flags.homeWish===S.year));
       if(offs.length){ UI.card('event', ag ? '經紀人帶來報價' : '轉會傳聞', ag ? `${agentOf().n}按你的要求聯絡了多間球會：` : `有球會向${cur.n}提出報價：`); offs.forEach(x => opts.push(offerOpt(x, ri(3,5), '轉會至'))); if(ag && S.agent) S.agent.rel = clamp(S.agent.rel+3,0,100); }
@@ -295,13 +301,14 @@ function contractTime(done){
     if(!opts.length){ endGame(`${age+1} 歲合約到期，再沒有球會報價，宣布退役。`); return; }
   }
   if(age>=32) opts.push({ t:'宣布退役', warn:true, s:'生涯結束', f:()=>endGame(`${age+1} 歲夏天宣布退役。`) });
+  CT_OPTS = opts;
   UI.choose('夏季轉會窗：你的決定？', opts);
 }
 
 /* ---------- 結局 ---------- */
 function plStats(){ return S.hist.filter(r=>r.lg==='PL').reduce((t,r)=>({ app:t.app+r.app, g:t.g+r.g, a:t.a+r.a, cs:t.cs+(r.cs||0) }), { app:0, g:0, a:0, cs:0 }); }
 function careerStats(){ return S.hist.filter(r=>r.lg!=='DEV').reduce((t,r)=>({ app:t.app+r.app, g:t.g+r.g, a:t.a+r.a, cs:t.cs+(r.cs||0) }), { app:0, g:0, a:0, cs:0 }); }
-const HONOUR_PTS = [[/^英超冠軍/,120,true],[/^(西甲|意甲|德甲|法甲)冠軍/,100,true],[/^(國王盃|意大利盃|德國盃|法國盃)冠軍/,25,true],[/^(西甲|意甲|德甲|法甲)金靴/,50],[/^(西甲|意甲|德甲|法甲)金手套/,50],[/^(西甲|意甲|德甲|法甲)年度最佳球員/,75],[/^(西甲|意甲|德甲|法甲)年度最佳陣容/,20],[/^FA Cup/,30,true],[/^聯賽盃/,15,true],[/^英超金靴/,60],[/^英超金手套/,60],[/^PFA 年度最佳球員/,90],[/^PFA 年度最佳年輕/,30],[/^英超年度最佳陣容/,25],[/^英超隊長/,12],
+const HONOUR_PTS = [[/^英超冠軍/,120,true],[/^歐聯冠軍/,150,true],[/^歐霸冠軍/,60,true],[/^歐協聯冠軍/,35,true],[/^歐聯亞軍/,40],[/^(歐霸|歐協聯)亞軍/,12],[/^歐洲超級盃冠軍/,15,true],[/^洲際盃冠軍/,20,true],[/^世冠盃冠軍/,60,true],[/世冠盃（/,0],[/^歐聯金靴/,40],[/^(歐霸|歐協聯)金靴/,15],[/年度世界足球先生/,150],[/^(西甲|意甲|德甲|法甲)冠軍/,100,true],[/^(國王盃|意大利盃|德國盃|法國盃)冠軍/,25,true],[/^(西甲|意甲|德甲|法甲)金靴/,50],[/^(西甲|意甲|德甲|法甲)金手套/,50],[/^(西甲|意甲|德甲|法甲)年度最佳球員/,75],[/^(西甲|意甲|德甲|法甲)年度最佳陣容/,20],[/^FA Cup/,30,true],[/^聯賽盃/,15,true],[/^英超金靴/,60],[/^英超金手套/,60],[/^PFA 年度最佳球員/,90],[/^PFA 年度最佳年輕/,30],[/^英超年度最佳陣容/,25],[/^英超隊長/,12],
   [/球衣退役/,60],[/銅像/,80],[/十年服務/,15],[/告別賽/,10],[/(世界盃|歐洲國家盃)金靴/,40],[/(世界盃|歐洲國家盃)最佳球員/,60],[/^英冠冠軍/,25,true],[/^英甲冠軍/,15,true],[/^英乙冠軍/,10,true],[/^英議聯冠軍/,8,true],[/升級/,10,true],[/年度最佳陣容/,8],[/金靴|金手套/,8],[/冠軍）$/,100],[/（亞軍）$/,40],[/（4 強）$/,20]];
 function dominance(){
   let s = 0; const parts = {};

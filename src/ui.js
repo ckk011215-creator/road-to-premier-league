@@ -129,6 +129,11 @@ function nextBanner(){
   let k = '', h = '', sub = '';
   if(sl.k==='cup'){ const st = S.cup && S.cup[sl.cup], o = st && club(st.opp), c = club(curClub());
     k = cupRoundName(sl.cup, sl.r); h = `<div class="nb-vs"><b>${crestSVG(c.id, 26)}${esc(c.n)}</b><i>VS</i><b>${o ? crestSVG(o.id, 26) : ''}${esc(o ? o.n : '抽籤待定')}</b></div>`; sub = `淘汰賽：打和便加時，再和便互射十二碼${o ? `｜對手 ${LG[o.lg].short}・實力 ${Math.round(o.str)}` : ''}`; }
+  else if(sl.k==='euro'){ const E = S.eu, c = club(curClub());
+    const oid = sl.ph==='icc' ? null : sl.ph==='lg' ? (E && E.opps ? E.opps[sl.i] : null) : (E && E.ko ? E.ko.opp : null), o = oid ? anyClub(oid) : null, cu = E && E.comp ? EURO[E.comp] : null;
+    k = sl.ph==='icc' ? '洲際盃決賽' : sl.ph==='lg' ? `${cu?cu.n:'歐洲賽'}・聯賽階段第 ${sl.i+1} 輪` : `${cu?cu.n:'歐洲賽'}・${KO_N[sl.st]}${sl.leg?`・${sl.leg===1?'首':'次'}回合`:''}`;
+    h = `<div class="nb-vs"><b>${crestSVG(c.id, 26)}${esc(c.n)}</b><i>VS</i><b>${o ? crestSVG(o.id, 26) : ''}${esc(o ? o.n : '待定')}</b></div>`;
+    sub = sl.ph==='lg' ? `聯賽階段：${E ? `${E.pts} 分（${E.w} 勝 ${E.d} 和 ${E.l} 負）` : ''}｜首八名直入十六強，第 9 至 24 名踢附加賽` : sl.ph==='icc' ? '單場決賽：爭奪世界最佳球會' : sl.st==='final' ? '單場決賽' : `兩回合主客制${E && E.ko && E.ko.l1 && sl.leg===2 ? `｜首回合 ${E.ko.l1.gf}–${E.ko.l1.ga}` : ''}`; }
   else if(sl.k==='match'){
     if(isYouth()){ const f = sl.fx; k = f.tag; h = `<div class="nb-vs"><b>${esc(f.home)}</b><i>VS</i><b>${esc(f.opp)}</b></div>`; sub = f.diff>2?'我方較強':f.diff<-2?'對手較強':'實力相若'; }
     else { const c = club(curClub()), { o, derby } = fixtureOpp(sl), se = S.season || {};

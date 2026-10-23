@@ -4,9 +4,9 @@
 /* aca＝學院邀請倍數；trial＝試訓成功率加減；ret＝學院保留偏差；sch＝Scholarship 偏差；pro＝18 歲職業合約加減；
    nl＝非聯賽球員每年獲職業球會報價的機會；pl＝非英超球員每年獲英超球會報價的機會 */
 const DIFF = {
-  easy:   { n:'輕鬆', odds:6,  train:1.2,  inj:0.8,  trust:0.7,  aca:1, acaY:0.45, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:90, proCap:90, nl:0.1,    keep:0.2, plKeep:1,    young:0.5,  loan:0.8, debut:0.8, pl:1,     plB:5,  roleB:0,  roleY:-1.5,
+  easy:   { n:'輕鬆', odds:6,  train:1.2,  inj:0.8,  trust:0.7,  aca:1, acaY:0.45, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:90, proCap:90, nl:0.1,    keep:0.2, plKeep:1,    young:0.5,  loan:0.8, debut:0.8, pl:1,     plB:3,  roleB:0,  roleY:-1.5,
             d:'成長較快、受傷較少、主帥較寬容。約一半人可以入到學院，約五分一可以踢上英超。' },
-  normal: { n:'標準', odds:0,  train:1.1,  inj:1,    trust:1,    aca:1, acaY:0.43, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:88, proCap:90, nl:0.04,   keep:0.16, plKeep:1,   young:0.3,  loan:0.7, debut:0.7, pl:1,     plB:6,  roleB:0,  roleY:0,
+  normal: { n:'標準', odds:0,  train:1.1,  inj:1,    trust:1,    aca:1, acaY:0.40, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:88, proCap:90, nl:0.04,   keep:0.16, plKeep:1,   young:0.3,  loan:0.7, debut:0.7, pl:1,     plB:4,  roleB:0,  roleY:0,
             d:'原本的平衡。約三分一可以入到學院，約七分一可以踢上英超。' },
   hard:   { n:'困難', odds:-5, train:1,    inj:1.2,  trust:1.3,  aca:1, acaY:0.37, trial:0,   ret:0,    sch:0,  pro:0,   retCap:92,  schCap:60, proCap:70, nl:0.03,   keep:0.1, plKeep:1,    young:0.05, loan:0.5, debut:0.5, pl:1,     plB:11, roleB:0,  roleY:-1,
             d:'關鍵時刻成功率 −5%、受傷較多、主帥較嚴厲。約五分一可以入到學院，約十分一可以踢上英超。' },
@@ -203,6 +203,8 @@ function seasonPaper(o){
   const yr = S.year+1, hon = S.honours.filter(h => h.y===yr);
   let hl, sub;
   if(pos===1 && played) hl = `${sn}助${c.n}稱王`;
+  else if(hon.some(h=>/^歐聯冠軍/.test(h.t))) hl = `歐洲之巔！${sn}高舉大耳盃`;
+  else if(hon.some(h=>/年度世界足球先生/.test(h.t))) hl = `${sn}當選世界足球先生`;
   else if(hon.some(h=>/FA Cup/.test(h.t)) && played) hl = `溫布萊之夜！${sn}捧起 FA Cup`;
   else if(hon.some(h=>/^(國王盃|意大利盃|德國盃|法國盃)冠軍/.test(h.t)) && played) hl = `${sn}捧起${hon.find(h=>/^(國王盃|意大利盃|德國盃|法國盃)冠軍/.test(h.t)).t.replace('冠軍','')}`;
   else if(aw.some(a=>/金靴/.test(a))) hl = `${row.g} 球！${sn}奪得金靴`;

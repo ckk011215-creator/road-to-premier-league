@@ -4,6 +4,7 @@
     "engine-core.js",
     "data-abroad.js",
     "content.js",
+    "scenes-extra.js",
     "events-extra.js",
     "events-pro.js",
     "events-abroad.js",
@@ -18,6 +19,8 @@
     "engine-story.js",
     "engine-squad.js",
     "engine-cup.js",
+    "engine-euro.js",
+    "engine-contract.js",
     "engine-abroad.js"
   ],
   "ui": [

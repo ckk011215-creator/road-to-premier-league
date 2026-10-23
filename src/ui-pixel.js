@@ -48,7 +48,7 @@ const lum = hx => { const n = parseInt(hx.slice(1),16); return (0.299*((n>>16)&2
 /* ---------- 虛構隊徽（SVG 盾牌） ---------- */
 function crestSVG(id, size=18){
   if(!id) return '';
-  const c = S && S.W && S.W.clubs[id], name = c ? c.n : String(id), d = kitDesign(id), u = `cr${hashN(id+size)}`;
+  const c = (S && S.W && S.W.clubs[id]) || (typeof EXT_CLUBS!=='undefined' && EXT_CLUBS[id]), name = c ? c.n : String(id), d = kitDesign(id), u = `cr${hashN(id+size)}`;
   const pat = { stripes:`<rect x="7" width="3" height="30" fill="${d.b}"/><rect x="14" width="3" height="30" fill="${d.b}"/>`, hoops:`<rect y="9" width="24" height="4" fill="${d.b}"/><rect y="17" width="24" height="4" fill="${d.b}"/>`,
     halves:`<rect x="12" width="12" height="30" fill="${d.b}"/>`, sash:`<polygon points="0,4 6,0 24,22 24,30" fill="${d.b}"/>`, sleeves:`<polygon points="0,0 24,0 24,6 12,13 0,6" fill="${d.b}"/>`, plain:`<polygon points="2,20 12,13 22,20 22,24 12,17 2,24" fill="${d.b}"/>` }[d.pat] || '';
   const ink = lum(d.a) > 0.6 ? '#1b1f2a' : '#ffffff';
