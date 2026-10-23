@@ -57,7 +57,7 @@ function cupRun(sl, next){
   /* 角色：聯賽盃早圈會讓後備及年輕球員上陣 */
   const early = k==='lc' && sl.r<=2 && c.lg==='PL';
   let n, sub = false, plays = true;
-  if(S.inj && S.inj.w>0) plays = false;
+  if(injSev()==='major') plays = false;
   else if(se.dev){ plays = early || (k==='fa' && sl.r<=3 && chance(30)); n = 2; sub = !early && chance(50); }
   else if(se.r===0){ n = early && chance(50) ? 1 : 3; sub = n===1; }
   else if(se.r===1){ n = 2; }
@@ -82,7 +82,7 @@ function cupRun(sl, next){
   };
   if(!plays){
     const lamF = clamp(1.35 + (c.str-o.str)*0.06, 0.35, 3.2), lamA = clamp(1.3 - (c.str-o.str)*0.06, 0.3, 3.2), gf = poisson(lamF), ga = poisson(lamA);
-    UI.card('', `${tag}：${c.n} ${gf}–${ga} ${o.n}`, S.inj && S.inj.w>0 ? '你仍在養傷，只能在看台觀戰。' : '你沒有入選這場盃賽的大軍名單。');
+    UI.card('', `${tag}：${c.n} ${gf}–${ga} ${o.n}`, injSev()==='major' ? '你仍在養傷，只能在看台觀戰。' : '你沒有入選這場盃賽的大軍名單。');
     after({ gf, ga, sim:true }); return;
   }
   playMatch({ tag, hc:c.id, oc:o.id, home:c.n, opp:o.n, lvl:(o.str + lg.par)/2, diff:c.str-o.str + (wem?0:home?1:-1),

@@ -93,7 +93,7 @@ function refreshSide(){
   $('side-card').innerHTML = `<div class="pc-top"><div class="pc-ovr"><b>${estOvr()}</b><small>評估</small></div><div class="pc-pos"><b>${POS[S.pos].n}</b><small>${S.age} 歲</small></div><img class="pc-av" src="${playerURL(5)}" alt=""></div>
     <div class="pc-name">${esc(fullName())}</div><div class="pc-club">${S.pro ? crestSVG(curClub(), 14) : ''}${esc(stageLabel())}${S.pro ? `<small class="kitn">${KIT_PAT_N[kitDesign(curClub()).pat]}球衣</small>` : ''}</div>
     <div class="pc-attrs">${ATTRS.map(k => `<span class="${keyAttrs().slice(0,4).includes(k)?'key':''}"><b>${estAttr(k)}</b><i>${ATTR_N[k]}</i></span>`).join('')}</div>`;
-  $('side-m').innerHTML = ms.map(([k,n,v,inv]) => `<div class="mt${(inv?v>=70:v<=25)?' bad':''}"><span>${n}<b>${v}</b></span><i><u style="width:${v}%"></u></i></div>`).join('') + (S.inj&&S.inj.w>0?`<div class="inj">傷患：${esc(S.inj.n)}，尚餘 ${S.inj.w} 星期</div>`:'');
+  $('side-m').innerHTML = ms.map(([k,n,v,inv]) => `<div class="mt${(inv?v>=70:v<=25)?' bad':''}"><span>${n}<b>${v}</b></span><i><u style="width:${v}%"></u></i><small>${meterHint(k)}</small></div>`).join('') + (injSev()?`<div class="inj ${injSev()}">${injSev()==='major'?'傷停':'輕傷'}：${esc(S.inj.n)}，尚餘 ${S.inj.w} 星期${injSev()==='minor'?'（可帶傷上陣，能力下降）':'（不能比賽）'}</div>`:'');
   const sl = nextSlot();
   $('g-date').textContent = `${slotDate(sl?sl.wk:S.wk)}・${pageTitle()}`;
   $('b-auto').innerHTML = `<b>${isYouth()?'模擬至學期末':'模擬至半季末'}</b>`;
@@ -143,7 +143,7 @@ function nextBanner(){
   else if(sl.k==='pre'){ k = '季前'; h = `<div class="nb-h">季前集訓</div>`; sub = '新賽季的角色、主帥與合約'; }
   else if(sl.k==='event'){ k = '生活'; h = `<div class="nb-h">生活事件</div>`; sub = '球場以外的事情'; }
   else { k = isYouth() ? `${TERMS_Y[S.term]}結束` : `${TERMS_P[S.term]}結束`; h = `<div class="nb-h">${isYouth() ? (S.term===2?'學年結束・年度評估':'學期總結') : (S.term===2?'賽季結束・頒獎與合約':'半季總結')}</div>`; sub = isYouth()&&S.term===2 ? '年度報告、學院去留、試訓邀請' : '教練評語與狀態變化'; }
-  return `<div class="nb" style="--kit:${clubKit()}"><div class="nb-l"><span class="nb-k">${esc(k)}</span>${h}<small>${slotDate(sl.wk)}・${esc(sub)}</small></div><button class="btn main nb-go" id="nb-go"><b>推進 ▸</b></button></div>`;
+  return `<div class="nb" style="--kit:${clubKit()}"><div class="nb-l"><span class="nb-k">${esc(k)}</span>${h}<small>${slotDate(sl.wk)}・${esc(sub)}</small>${injSev() && ['match','cup','euro'].includes(sl.k) ? `<small class="nb-inj ${injSev()}">${injSev()==='major' ? '🩹 傷停' : '🩹 帶傷'}：${esc(injTxt())}</small>` : ''}</div><button class="btn main nb-go" id="nb-go"><b>推進 ▸</b></button></div>`;
 }
 function viewHome(){
   const r = (S.recent||[]).slice(0,5).reverse(), ss = S.ss || { app:0, g:0, a:0, cs:0, rt:0 }, gk = S.pos==='GK';
@@ -200,7 +200,7 @@ function panelMe(){
   const bp = bestPositions(), top = bp[0][1];
   const pf = (S.pos==='GK' ? ['GK'] : OUT_POS).map(p => { const v = bp.find(x=>x[0]===p)[1]*famF(p), st = clamp(Math.round(5 - (top - v)/3.5), 1, 5); return `<div class="${p===S.pos?'cur':''}">${POS[p].n.slice(0,2)}<b>${'●'.repeat(st)}</b></div>`; }).join('');
   const heightTxt = S.spurt && S.spurt.done ? `${Math.round(S.h)} 厘米（預計成年約 ${S.adultH}）` : `${Math.round(S.h)} 厘米（按父母身高推算成年約 ${Math.round((S.fatherH+S.motherH+13)/2)}，誤差 ±7）`;
-  const meters = Object.keys(METER_N).filter(k => !['mates','fans','fam'].includes(k) && !(k==='scout' && S.stage!=='GR') && !(k==='study' && S.age>=18) && !(k==='coach' && S.stage==='PRO')).map(k => `<dt>${METER_N[k]}</dt><dd class="num">${S.m[k]}</dd>`).join('');
+  const meters = Object.keys(METER_N).filter(k => !['mates','fans','fam'].includes(k) && !(k==='scout' && S.stage!=='GR') && !(k==='study' && S.age>=18) && !(k==='coach' && S.stage==='PRO')).map(k => `<dt>${METER_N[k]}</dt><dd class="num">${S.m[k]}${meterHint(k)?`<small class="mh">${meterHint(k)}</small>`:''}</dd>`).join('');
   const mid = Object.fromEntries(ATTRS.map(k => [k, estAttr(k)]));
   const eRef = Math.round(E(S.age)), rad = radarSVG([{ v:Object.fromEntries(ATTRS.map(k=>[k,eRef])), cls:'rp-base' }, { v:mid, cls:'rp-me' }], { aria:'能力估計雷達', label:k => `${ATTR_N[k]} ${mid[k]}`, cls:k => ks.includes(k)?'up':'' }) + `<div class="rp-key"><span class="k-base">同齡精英學院水平（${eRef}）</span><span class="k-me">你（估計）</span></div>`;
   return `<div class="pgrid">

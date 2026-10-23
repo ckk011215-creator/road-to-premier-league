@@ -67,10 +67,10 @@ function tourney(team, role, next){
   UI.card('gold', `${yr} ${name}`, `${team}公布大賽名單，你榜上有名，預計擔任<b>${roleN}</b>。<br>分組賽對手：${grp.map(x=>x.n).join('、')}。`);
   /* 一場比賽：視乎角色決定是否上陣 */
   const game = (o, tag, ko, done) => {
-    const play = role===0 || (role===1 ? chance(70) : chance(40)), sub = role===2 || (role===1 && chance(35));
+    const play = injSev()!=='major' && (role===0 || (role===1 ? chance(70) : chance(40))), sub = role===2 || (role===1 && chance(35));
     UI.newPage(`${yr} ${name}・${tag}`);
     if(!play){ const gf = poisson(clamp(1.35+(ts-o.s)*0.07,0.3,3)), ga = poisson(clamp(1.3-(ts-o.s)*0.07,0.3,3));
-      UI.card('', `${tag}：${team} ${gf}–${ga} ${o.n}`, `你整場坐在後備席上。`); done({ gf, ga, played:false }); return; }
+      UI.card('', `${tag}：${team} ${gf}–${ga} ${o.n}`, injSev()==='major' ? '你仍在養傷，只能在看台上為隊友打氣。' : `你整場坐在後備席上。`); done({ gf, ga, played:false }); return; }
     playMatch({ tag:`${name}・${tag}`, home:team, opp:o.n, lvl:o.s-3, diff:ts-o.s, stake:ko?3:2, youth:false, n:sub?1:(ko?3:2), sub, intl:true },
       r => { T.app++; T.g += r.g; T.a += r.a; T.rt += r.rt; done({ ...r, played:true }); });
   };

@@ -63,5 +63,7 @@ function autoFollow(o, ok){
   if(gk && ok && o.k==='S') return o.m==='bold' ? (chance(45) ? 'GKD' : null) : (chance(30) ? 'REB' : null);
   if(!gk && !ok && o.k==='G' && o.m!=='safe') return chance(28) ? 'RBD' : null;
   if(!gk && ok && o.k==='D') return chance(25) ? 'BRK' : null;
+  /* 中場球員成功控球後，可以繼續組織攻勢 */
+  if(!gk && ok && o.k==='N' && POS[S.pos].g==='MID') return chance(20) ? 'BUILD' : null;
   return null;
 }

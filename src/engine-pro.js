@@ -1,5 +1,5 @@
 /* ================= 職業生涯（包括非聯賽） ================= */
-const GAME_VER = '1.3.0';
+const GAME_VER = '1.6.0';
 const ROLES = ['主力','輪換','替補','未入名單'];
 const ROLE_MUL = [1, 0.6, 0.3, 0.1];
 
@@ -20,7 +20,7 @@ function startPro(cid, opts={}){
 /* 記錄曾經與英足聯或海外頂級聯賽球會簽約（用於統計職業球員比例） */
 function proMark(c){ if(c && (LG[c.lg].lvl<=4 || LG_ABROAD.includes(c.lg)) && !LG[c.lg].pool) S.flags.proSigned = 1; }
 function roleCalc(){
-  const c = club(curClub()), diff = ovr() - c.str + footEdge() + (S.pro.trust-50)/10 + (S.pro.captain?1:0) - (S.age<18?4:0) + clamp(styleFit(c.id)*0.3, -2, 2) - abroadPen() + dif().roleB + (S.age<=21 ? dif().roleY : 0);
+  const c = club(curClub()), diff = ovr() - c.str + footEdge() + (S.pro.trust-50)/10 + (S.pro.captain?1:0) - (S.age<18?4:0) + clamp(styleFit(c.id)*0.3, -2, 2) - abroadPen() + dif().roleB + (S.age<=21 ? dif().roleY : 0) - (injSev()==='minor' ? 2 : 0);
   /* 門將只有一個正選位置：不是正選就是後備，很少輪換 */
   let r = S.pos==='GK' ? (diff>=2?0 : diff>=-3?2 : 3) : diff>=3?0 : diff>=-1.5?1 : diff>=-5?2 : 3;
   return { r, dev: r===3 && S.age<=21 && !S.pro.semi && c.cat>0 };
@@ -106,11 +106,13 @@ function simSeason(){
   const n90 = app*mpg/90;
   const g = Math.max(se.dev?0:se.mg, Math.round(GOAL90[pos]*clamp(1+(eff('sho')-lvl)*0.035,0.3,2.3)*n90*rf(0.85,1.15)*(1+(S.m.conf-50)/250)));
   const a = Math.max(se.dev?0:se.ma, Math.round(AST90[pos]*clamp(1+((eff('pas')+eff('iq'))/2-lvl)*0.03,0.3,2.1)*n90*rf(0.85,1.15)));
-  const dB = ['CB','FB','DM'].includes(pos) ? 0.12 : 0;
+  /* 評分按位置標準化：入球、助攻只按「超出該位置平均」的部分加分；防守球員按球隊防守表現加分 */
+  const norm = (GOAL90[pos] + AST90[pos]*0.6)*mpg/90, defT = clamp((c.str - lg.par)*0.012 + (ovr()-lvl)*0.008, -0.12, 0.2);
+  const dB = 0.2 + (['CB','FB','DM'].includes(pos) ? defT : pos==='CM' ? defT*0.5 : 0);
   /* 門將：零封場數取決於球隊實力與個人能力 */
   const csR = pos==='GK' ? clamp(0.24 + (c.str - lg.par)*0.018 + (ovr()-lvl)*0.012, 0.06, 0.58) : 0;
   const cs = pos==='GK' ? Math.round(app*csR*rf(0.85,1.15)) : 0;
-  let rt = app ? clamp(6.55 + clamp(ovr()-lvl,-15,15)*0.045 + (g+a*0.6)/Math.max(1,app)*0.7 + (pos==='GK' ? cs/Math.max(1,app)*0.7 - 0.05 : 0) + dB + se.mo + N0(0.12) - (S.m.fat>70?0.1:0), 5.6, 8.9) : 0;
+  let rt = app ? clamp(6.55 + clamp(ovr()-lvl,-15,15)*0.045 + ((g+a*0.6)/Math.max(1,app) - norm)*0.6 + (pos==='GK' ? (cs/Math.max(1,app) - 0.3)*0.7 : 0) + dB + se.mo + N0(0.12) - (S.m.fat>70?0.1:0), 5.6, 8.9) : 0;
   /* 親自上陣／模擬過的比賽評分佔四成 */
   if(app && S.ss && S.ss.app && !se.dev) rt = clamp(rt*0.6 + (S.ss.rt/S.ss.app)*0.4, 5.6, 8.9);
   const row = { y:S.year, age:S.age, club:c.id, lg:se.dev?'DEV':c.lg, loan:!!S.pro.loan, role:se.dev?'預備組':ROLES[se.r], r:se.r, app, g, a, cs, gk:pos==='GK', rt:+rt.toFixed(2), fd:se.fd };
@@ -310,10 +312,12 @@ function plStats(){ return S.hist.filter(r=>r.lg==='PL').reduce((t,r)=>({ app:t.
 function careerStats(){ return S.hist.filter(r=>r.lg!=='DEV').reduce((t,r)=>({ app:t.app+r.app, g:t.g+r.g, a:t.a+r.a, cs:t.cs+(r.cs||0) }), { app:0, g:0, a:0, cs:0 }); }
 const HONOUR_PTS = [[/^英超冠軍/,120,true],[/^歐聯冠軍/,150,true],[/^歐霸冠軍/,60,true],[/^歐協聯冠軍/,35,true],[/^歐聯亞軍/,40],[/^(歐霸|歐協聯)亞軍/,12],[/^歐洲超級盃冠軍/,15,true],[/^洲際盃冠軍/,20,true],[/^世冠盃冠軍/,60,true],[/世冠盃（/,0],[/^歐聯金靴/,40],[/^(歐霸|歐協聯)金靴/,15],[/年度世界足球先生/,150],[/^(西甲|意甲|德甲|法甲)冠軍/,100,true],[/^(國王盃|意大利盃|德國盃|法國盃)冠軍/,25,true],[/^(西甲|意甲|德甲|法甲)金靴/,50],[/^(西甲|意甲|德甲|法甲)金手套/,50],[/^(西甲|意甲|德甲|法甲)年度最佳球員/,75],[/^(西甲|意甲|德甲|法甲)年度最佳陣容/,20],[/^FA Cup/,30,true],[/^聯賽盃/,15,true],[/^英超金靴/,60],[/^英超金手套/,60],[/^PFA 年度最佳球員/,90],[/^PFA 年度最佳年輕/,30],[/^英超年度最佳陣容/,25],[/^英超隊長/,12],
   [/球衣退役/,60],[/銅像/,80],[/十年服務/,15],[/告別賽/,10],[/(世界盃|歐洲國家盃)金靴/,40],[/(世界盃|歐洲國家盃)最佳球員/,60],[/^英冠冠軍/,25,true],[/^英甲冠軍/,15,true],[/^英乙冠軍/,10,true],[/^英議聯冠軍/,8,true],[/升級/,10,true],[/年度最佳陣容/,8],[/金靴|金手套/,8],[/冠軍）$/,100],[/（亞軍）$/,40],[/（4 強）$/,20]];
+/* 稱霸指數的位置補償：防守球員入球少，按上陣場數補回 */
+const DOM_POS = { CB:0.5, FB:0.5, DM:0.42, CM:0.3, AM:0.12, W:0.05, ST:0, GK:0.25 };
 function dominance(){
   let s = 0; const parts = {};
   S.honours.forEach(h => { const rule = HONOUR_PTS.find(([re]) => re.test(h.t)); if(!rule) return; const v = rule[1]*(rule[2]&&h.role!=null?ROLE_MUL[h.role]:1); s += v; parts[h.t.replace(/^\d+ /,'')] = (parts[h.t.replace(/^\d+ /,'')]||0) + v; });
-  const pl = plStats(), ab = abroadStats(); s += pl.app*0.6 + pl.g*1.2 + pl.a*0.6 + pl.cs*1.6 + S.caps*1.5 + ab.app*0.5 + ab.g*1 + ab.a*0.5 + ab.cs*1.3;
+  const pl = plStats(), ab = abroadStats(); const dp = DOM_POS[S.pos] || 0; s += pl.app*(0.6 + dp) + ab.app*dp*0.85 + pl.g*1.2 + pl.a*0.6 + pl.cs*1.6 + S.caps*1.5 + ab.app*0.5 + ab.g*1 + ab.a*0.5 + ab.cs*1.3;
   return Math.round(s);
 }
 function evaluate(){

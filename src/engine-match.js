@@ -76,7 +76,7 @@ function planTick(weeks){
   /* 個人訓練計劃 */
   const base = (S.stage==='PRO' && S.pro && S.pro.semi ? 2.4 : TRAIN_BASE[S.stage]) * 2.4;
   const w = planWeights(P.focus), tot = Object.values(w).reduce((a,b)=>a+b,0);
-  const mul = base * I.g * (O.gmul||1) * (hasLife('ptc')?1.15:1) * dif().train * f * (injured ? 0.4 : 1);
+  const mul = base * I.g * (O.gmul||1) * (hasLife('ptc')?1.15:1) * dif().train * f * (injSev()==='major' ? 0.35 : injured ? 0.8 : 1);
   for(const k in w) train(k, mul * w[k]/tot);
   if(O.tr) for(const k in O.tr) train(k, O.tr[k]*f);
   /* 學院／學徒的固定訓練、自然成長 */
@@ -100,7 +100,7 @@ function planTick(weeks){
   if(hasLife('psych')) addMeter('conf', (55 - S.m.conf)*0.15*f);
   S.m.fat = Math.round(S.m.fat + (target - S.m.fat)*(1 - Math.pow(0.82, weeks)));
   /* 傷患復原 */
-  if(S.inj && S.inj.w>0){ S.inj.w = Math.max(0, S.inj.w - Math.round(weeks*(hasLife('cryo')?1.4:1))); if(S.inj.w===0){ UI.card('good','傷癒復出', '你終於可以重返球場。'); } }
+  if(S.inj && S.inj.w>0){ S.inj.w = Math.max(0, S.inj.w - Math.round(weeks*(hasLife('cryo')?1.4:1))); if(S.inj.w===0){ UI.card('good','傷癒復出', S.inj.sev==='minor' ? `${S.inj.n}已經痊癒，你可以全力比賽。` : '你終於可以重返球場。'); S.inj.sev = null; } }
 }
 
 /* ---------- 行事曆 ---------- */
@@ -185,8 +185,18 @@ function youthFixture(){
   return { tag: cup?'FA Youth Cup':'U18 英超聯', home:`${cName(S.aca.club)} U18`, opp:`${o.n} U18`, oppId:o.id, lvl:E(a)*0.97, diff:r1((S.W.clubs[S.aca.club].str - o.str)*0.3 + rf(-3,3)), stake:cup?2:1, n:3 };
 }
 function youthMatch(sl, next){
-  const f = sl.fx;
-  playMatch({ tag:f.tag, home:f.home, opp:f.opp, lvl:f.lvl, diff:f.diff, stake:f.stake||1, youth:true, n:f.n }, next);
+  const f = sl.fx, go = () => youthPick(f, role => {
+    if(role==='out'){ const t = fx({ conf:-2, love:-1 }); UI.card('bad', '坐在後備席', `${esc(f.tag)}對${esc(f.opp)}，教練整場都沒有派你上陣。你在場邊看着隊友比賽。<div class="fx">${t||''}教練印象越高，正選機會越大（現時 ${startChance()}%）。</div>`); next(); return; }
+    playMatch({ tag:f.tag, home:f.home, opp:f.opp, lvl:f.lvl, diff:f.diff, stake:f.stake||1, youth:true, n:f.n, sub:role==='sub', yrole:role }, next); });
+  if(injSev()==='major'){ UI.card('bad','傷停', `你仍在養傷（${esc(S.inj.n)}，尚餘 ${S.inj.w} 星期），只能在場邊看着隊友對${esc(f.opp)}。`); injuryEvent(next); return; }
+  if(injSev()==='minor'){ minorChoice(f.tag, go, next); return; }
+  go();
+}
+/* 青訓比賽的正選名單：由教練印象決定 */
+function youthPick(f, cb){
+  const role = youthRole();
+  if(role==='sub') UI.card('', '後備', `教練公布${esc(f.tag)}的正選名單，你不在其中。他說：「下半場會讓你上場。」<div class="fx">教練印象 ${Math.round(S.m.coach)}，正選機會 ${startChance()}%</div>`);
+  cb(role);
 }
 /* 職業比賽的對手：如外借後聯賽改變，重新抽選 */
 function fixtureOpp(sl){
@@ -206,8 +216,9 @@ function proFixtureRun(sl, next){
   const lvlFirst = (o.str + lg.par)/2;
   const leagueGame = !sl.friendly;
   const done = r => { if(leagueGame && r && r.league) leagueForced(c.lg, c.id, o.id, r.gf, r.ga); else if(leagueGame) leagueRoundFor(c.lg); next(); };
-  const rested = () => { UI.card('bad','傷停', `你仍在養傷（尚餘 ${S.inj.w} 星期），只能看着隊友對${o.n}。`); done(null); };
-  if(S.inj && S.inj.w>0){ if(S.inj.w<=3 && !sl.friendly && !se.dev && se.r<=1 && (derby || isRivalClub(o.id) || chance(25))){ playHurt(derby || `對${o.n}的宿敵對決`, () => proPlay(sl, se, c, lg, o, derby, lvlFirst, done), rested); return; } rested(); return; }
+  const rested = () => { UI.card('bad','傷停', `你仍在養傷（${esc(S.inj.n)}，尚餘 ${S.inj.w} 星期），只能看着隊友對${o.n}。`); injuryEvent(() => done(null)); };
+  if(injSev()==='major'){ rested(); return; }
+  if(injSev()==='minor' && !se.dev){ minorChoice(derby || (sl.friendly ? '季前熱身賽' : `對${o.n}的比賽`), () => proPlay(sl, se, c, lg, o, derby, lvlFirst, done), () => done(null)); return; }
   proPlay(sl, se, c, lg, o, derby, lvlFirst, done);
 }
 function proPlay(sl, se, c, lg, o, derby, lvlFirst, done){
@@ -246,7 +257,7 @@ const HT_OPTS = {
 };
 function playMatch(m, next){
   const gk = S.pos==='GK', lamF = clamp(1.35 + m.diff*0.06, 0.35, 3.2), lamA = clamp(1.3 - m.diff*0.06, 0.3, 3.2);
-  const st = { a:0, b:0, myG:0, myA:0, ok:0, ng:0, log:[], fat0:S.m.fat, m0:{ ...S.m }, tr0:S.pro ? S.pro.trust : 0,
+  const st = { a:0, b:0, myG:0, myA:0, ok:0, kd:0, ng:0, log:[], fat0:S.m.fat, m0:{ ...S.m }, tr0:S.pro ? S.pro.trust : 0,
     otherF:Array.from({ length:poisson(lamF*0.72) }, () => ri(1,90)), otherA:Array.from({ length:poisson(lamA*0.8) }, () => ri(1,90)), extraA:[] };
   const mins = m.sub ? [ri(66,88)] : Array.from({ length:m.n }, () => ri(6,88)).sort((x,y)=>x-y);
   for(let i=1;i<mins.length;i++) if(mins[i] <= mins[i-1]) mins[i] = Math.min(89, mins[i-1]+3);
@@ -261,6 +272,7 @@ function playMatch(m, next){
   const onPitch = x => !m.sub || x >= 90 - st.mins;
   st.svm = gk ? Array.from({ length:poisson(clamp(1.5 - m.diff*0.06, 0.4, 3.2)) }, () => ri(3,89)).filter(onPitch).sort((x,y)=>x-y) : [];
   const ctx = { tag:m.tag, opp:m.opp, lvl:m.lvl, stake:m.stake||1, youth:m.youth, ms:0.22, ts:0.08, home:m.home, sub:!!m.sub, oc:m.oc };
+  st.hurt = injSev()==='minor';
   UI.card('prematch', m.tag, prematchHTML(m), null, { m });
   const score = min => [st.tl.filter(e => e.side==='F' && e.min<min).length, st.tl.filter(e => e.side==='A' && e.min<min).length];
   const run = manual => {
@@ -303,7 +315,7 @@ function playMatch(m, next){
     const record = (r, min) => {
       const all = flat(r);
       /* 冒險成功對評分幫助較大；穩健失敗扣分較多 */
-      all.forEach((x, ci) => { const cw = ci ? 0.6 : 1; if(x.ok){ st.ok += (({ safe:0.5, norm:1, bold:1.5, sig:1.6 })[x.m] || 1) * cw;
+      all.forEach((x, ci) => { const cw = ci ? 0.6 : 1; if(x.ok){ const mw = (({ safe:0.5, norm:1, bold:1.5, sig:1.6 })[x.m] || 1) * cw; st.ok += mw; if(x.k==='D' || x.k==='S') st.kd += mw;
           if(x.k==='G'){ st.myG++; addG('F', min, m.sub ? -2 : L.myIdx, true, true); }
           if(x.k==='A'){ st.myA++; addG('F', min, null, false, true); } }
         else { st.ng += (({ safe:1.3, norm:1, bold:0.7, sig:0.7 })[x.m] || 1) * cw; if((x.k==='S' && chance(gk?70:100)) || (x.k==='D' && chance(55))){ st.extraA.push(min); addG('A', min, null, false, true); } } });
@@ -315,8 +327,9 @@ function playMatch(m, next){
       if(manual) ticker(last, 90);
       const gf = st.tl.filter(e => e.side==='F').length, ga = st.tl.filter(e => e.side==='A').length;
       /* 評分按位置公平計算：防守球員的成功防守與零封加分較多；門將另計比賽中的其他撲救 */
-      const g = POS[S.pos].g, dw = g==='DEF' ? 1.75 : g==='GK' ? 1.65 : g==='MID' ? 1.2 : 1;
-      let rt = 6.3 + clamp(ovr()-m.lvl,-12,12)*0.035 + st.myG*0.75 + st.myA*0.45 + st.ok*0.18*dw - st.ng*0.22 + (gf>ga?0.2:gf<ga?-0.15:0) + (gk ? 0.05 + Math.min(0.5, st.svm.length*0.1) + (ga===0?0.5:-ga*0.08) : g==='DEF' ? (ga===0?0.4:-ga*0.05) : 0) + N0(0.18);
+      /* 成功防守（攔截、鏟斷、撲救）視為關鍵貢獻，按位置加分，與入球、助攻看齊 */
+      const g = POS[S.pos].g, kdw = ({ DEF:0.54, GK:0.3, MID:0.44, ATT:0.26 })[g];
+      let rt = 6.2 + clamp(ovr()-m.lvl,-12,12)*0.035 + st.myG*0.68 + st.myA*0.45 + st.ok*0.18 + st.kd*kdw - st.ng*0.22 + (gf>ga?0.2:gf<ga?-0.15:0) + (gk ? 0.05 + Math.min(0.5, st.svm.length*0.1) + (ga===0?0.5:-ga*0.08) : g==='DEF' ? (ga===0?0.4:-ga*0.05) : 0) + N0(0.18);
       if(m.sub) rt = 6.4 + (rt-6.4)*0.6;
       rt = r1(clamp(rt, 4.8, 9.8));
       const cs = gk && ga===0 && st.mins>=60;
@@ -335,6 +348,7 @@ function playMatch(m, next){
       recordResult(res, m);
       UI.card('mreport', '賽後戰報', reportHTML(res, st, m, out.filter(Boolean)), gf>ga && st.myG ? 'goal' : null);
       hurtAfter();
+      if(st.hurt){ injAggravate(); next(res); return; }
       matchInjury(m, () => next(res));
     };
     step();
@@ -353,27 +367,13 @@ function recordResult(r, m){
   S.ss = S.ss || { app:0, g:0, a:0, cs:0, rt:0 };
   S.ss.app++; S.ss.g += r.g; S.ss.a += r.a; S.ss.cs += r.cs?1:0; S.ss.rt += r.rt;
 }
-function matchInjury(m, cont){
-  cont = cont || (() => {});
-  const pro = !m.youth, inten = INTENSITY[(S.plan||{}).int||'normal'].inj;
-  const p = pro ? clamp(2.6 + (S.m.fat-45)*0.12 + Math.max(0,S.age-28)*0.35 + (S.tmpInj||0) + inten + (S.body==='lean'?0.5:0) - (hasLife('nutri')?0.8:0), 0.8, 16)
-                : clamp(1.2 + (S.m.fat-40)*0.08 + (S.age>=13?0.6:0) + (S.tmpInj||0)*0.4 + inten*0.6 - (S.flags.multi?0.6:0) - (S.items&&S.items.food?0.4:0), 0.4, 10);
-  S.tmpInj = 0;
-  if(!chance((p + (S.flags.weak>=S.year ? 2.5 : 0))*(hasPerk('iron')?0.65:1)*dif().inj)){ cont(); return; }
-  if(chance(pro?7:6)){ const w = ri(16,32), n = pick(['膝部十字韌帶','腳踝韌帶','跟腱']); S.inj = { w, n:`${n}受傷` }; if(pro && S.season) S.season.inj += w;
-    const t = fx(pro ? {conf:-6,love:-5,trust:-3} : {conf:-8,love:-6,coach:-3}); UI.card('bad','重傷', `比賽中一次落地，你感到一陣劇痛。醫生診斷為${n}受傷，需要休息 ${w} 星期。<div class="fx">${t}</div>`); logLine(`${S.age} 歲重傷（${n}），休息 ${w} 星期`);
-    if(pro && S.age>=27 && chance(45)){ S.ab.pac = Math.max(1,S.ab.pac-ri(1,3)); UI.card('bad','後遺症','傷癒之後，你的爆發力已大不如前。'); }
-    if(pro && S.stage==='PRO'){ injuryChoice('severe', w, n, cont); return; } }
-  else { const w = ri(1,5); S.inj = { w, n:'肌肉拉傷' }; if(pro && S.season) S.season.inj += w; UI.card('bad','輕傷', `賽後發現肌肉拉傷，需要休息 ${w} 星期。`);
-    if(pro && S.stage==='PRO' && w>=3){ injuryChoice('mid', w, '肌肉拉傷', cont); return; } }
-  cont();
-}
 const COACH_SAY = [[8.0,'「這是你的比賽。保持這種水平，你會走得很遠。」'],[7.2,'「表現很好，關鍵時刻做出了正確的選擇。」'],[6.6,'「中規中矩，下一場我想看到更多。」'],[0,'「今天不是你的日子。回去看片段，找出問題。」']];
 const MEDIA = ['《英倫體育報》','《三獅週刊》','《看台日報》','《星期日球場》','《每日足球》'];
 function prematchHTML(m){
-  const role = m.youth ? '' : m.reserve ? '預備組' : m.sub ? '後備' : '正選';
+  const role = m.youth ? (startChance()>=100 ? '' : m.sub ? '後備' : '正選') : m.reserve ? '預備組' : m.sub ? '後備' : '正選';
+  const sg = v => (v>0?'+':v<0?'−':'±') + Math.abs(v) + '%';
   return `<div class="pm"><div class="pm-team"><b>${esc(m.home)}</b><small>主隊</small></div><div class="pm-vs">VS<small>${m.diff>2?'我方較強':m.diff<-2?'對手較強':'實力相若'}</small></div><div class="pm-team r"><b>${esc(m.opp)}</b><small>客隊</small></div></div>
-  <div class="pm-chips"><span>對手水平 ${Math.round(m.lvl)}</span><span>你的能力 ${Math.round(ovr())}</span>${role?`<span>你的角色：${role}</span>`:''}<span>體能 ${100-S.m.fat}</span><span>自信 ${S.m.conf}</span></div>`;
+  <div class="pm-chips"><span>對手水平 ${Math.round(m.lvl)}</span><span>你的能力 ${Math.round(ovr())}</span>${role?`<span>你的角色：${role}</span>`:''}<span>自信 ${S.m.conf}：成功率 ${sg(confMod())}</span><span>疲勞 ${S.m.fat}：成功率 ${sg(fatMod())}</span><span>熱誠 ${S.m.love}：${meterHint('love')}</span>${injSev()==='minor'?`<span class="hurt">帶傷：${esc(S.inj.n)}</span>`:''}</div>`;
 }
 function reportHTML(r, st, m, out){
   const gk = S.pos==='GK', res = r.gf>r.ga?'勝':r.gf<r.ga?'負':'和';
@@ -406,11 +406,14 @@ function whenOk(w, st){
   const d = (st.a||0) - (st.b||0), late = (st.min||0) >= 80;
   return { trail:d<0, lead:d>0, level:d===0, late, trailLate:d<0&&late, leadLate:d>0&&late }[w] || false;
 }
+const POS_SCENE_W = 3.5;
 function sceneFor(st, bias){
   const g = POS[S.pos].g, groups = { DEF:['DEF','DEF','MID'], MID:['MID','MID','ATT','DEF'], ATT:['ATT','ATT','MID'], GK:['GK'] }[g].slice();
   if(bias==='ATT') groups.push(g==='DEF' ? 'MID' : 'ATT', g==='DEF' ? 'MID' : 'ATT'); if(bias==='DEF' && g!=='GK') groups.push(g==='ATT' ? 'MID' : 'DEF', g==='ATT' ? 'MID' : 'DEF');
   S.recentSc = S.recentSc || [];
-  const pool = [...new Set(groups)].flatMap(k => SCENES[k].map(sc => ({ sc, w:groups.filter(x=>x===k).length * (bias==='SWEEP' && sc.sw ? 4 : 1) })));
+  /* 沒有 pos 的場面按位置類別抽取；有 pos 的位置專屬場面只會在該位置出現，而且機會較高 */
+  const pool = [...new Set(groups)].flatMap(k => SCENES[k].filter(sc => !sc.pos).map(sc => ({ sc, w:groups.filter(x=>x===k).length * (bias==='SWEEP' && sc.sw ? 4 : 1) })))
+    .concat(Object.values(SCENES).flat().filter(sc => sc.pos && sc.pos.includes(S.pos)).map(sc => ({ sc, w:POS_SCENE_W * (bias==='DEF' && sc.o.some(o => o.k==='D') ? 1.5 : bias==='ATT' && sc.o.some(o => o.k==='G' || o.k==='A') ? 1.5 : 1) })));
   /* 符合比分情境的場面優先出現 */
   const ctxPool = pool.filter(x => x.sc.when && whenOk(x.sc.when, st) && !S.recentSc.includes(x.sc.t));
   let pickd = ctxPool.length && chance(55) ? pick(ctxPool).sc : null;
@@ -423,16 +426,16 @@ const groupOf = sc => Object.keys(SCENES).find(g => SCENES[g].includes(sc)) || (
 /* 成功率：模式基數＋能力對比對手水平＋自信、性格、疲勞、裝備；強項（能力高於對手 4／8 分）再加 5／10% */
 function oddsOf(o, lvl, cx){
   const a = o.ab.reduce((s,k)=>s+eff(k),0)/o.ab.length, main = eff(o.ab[0]) - lvl;
-  let p = MODE_BASE[o.m] + clamp((a - lvl)*(o.m==='sig'?2.6:2.2), -28, o.m==='sig'?30:24) + (S.m.conf-50)/6 + (S.pers.comp-3)*2;
+  const mm = { conf:confMod(), fat:fatMod() + lateMod(cx && cx.min), heart:o.heart ? 5 : 0 };
+  let p = MODE_BASE[o.m] + clamp((a - lvl)*(o.m==='sig'?2.6:2.2), -28, o.m==='sig'?30:24) + mm.conf + mm.fat + mm.heart + (S.pers.comp-3)*2;
   /* 隊友關係好，傳送配合較易成功 */
   if(o.k==='A') p += clamp(((S.m.mates??50)-50)/8, -4, 4);
   const strong = main>=8 ? 10 : main>=4 ? 5 : 0;
   p += strong;
-  if(S.m.fat>70) p -= 6;
   if(S.spurt && S.spurt.on) p -= 4;
   if(S.items && S.items.boots && S.age<19) p += 2;
   const pk = cx ? perkBonus(o, cx) : { v:0, n:[] }; p += pk.v + dif().odds;
-  return { p:clamp(Math.round(p), 5, 95), strong, pk };
+  return { p:clamp(Math.round(p), 5, 95), strong, pk, mm };
 }
 function sigState(sc, lvl){
   const sg = SCENE_SIG[sc.t]; if(!sg) return null;
@@ -449,12 +452,15 @@ function momentStep(ctx, st, done, scIn){
   const avg = Math.round(sc.o[0].ab.reduce((s,k)=>s+eff(k),0)/sc.o[0].ab.length);
   const mc = UI.card('moment', `${ctx.tag}・對${esc(ctx.opp)}`, `<div class="score"><span>第 ${st.min} 分鐘</span><b>${st.a} – ${st.b}</b></div><p class="sc-t">${sc.t}</p><p>${sc.d}</p>
     <div class="vsbar"><div><small>你（相關能力）</small><b>${avg}</b></div><i>VS</i><div class="r"><small>對手水平</small><b>${Math.round(ctx.lvl)}</b></div></div>
-    <div class="pm-chips">${sc.when?`<span class="ctx">${WHEN_N[sc.when]}</span>`:''}<span>體能 ${100-S.m.fat}</span><span>自信 ${S.m.conf}</span>${S.spurt&&S.spurt.on?'<span>發育期 −4%</span>':''}</div>`, null, { scene:grp, min:st.min, oc:ctx.oc });
-  const sg = scIn ? null : sigState(sc, ctx.lvl), list = sc.o.slice();
+    <div class="pm-chips">${sc.when?`<span class="ctx">${WHEN_N[sc.when]}</span>`:''}${sc.pos?`<span class="ctx">${POS[S.pos].n}專屬</span>`:''}<span>體能 ${100-S.m.fat}</span><span>自信 ${S.m.conf}</span><span>熱誠 ${S.m.love}${loveTier()==='hi'?' ♥':''}</span>${S.spurt&&S.spurt.on?'<span>發育期 −4%</span>':''}</div>`, null, { scene:grp, min:st.min, oc:ctx.oc });
+  const sg = scIn ? null : sigState(sc, ctx.lvl), { list, note } = momentList(sc, grp, !!scIn);
   if(sg && sg.open) list.unshift(sg.o);
-  const cx = { stake:ctx.stake, sub:ctx.sub, trail:st.a<st.b, sc:sc.t };
-  const optsOut = list.map(o => { const { p, strong, pk } = oddsOf(o, ctx.lvl, cx);
-    return { t:(o.m==='sig'?'★ ':'') + o.t, pct:SET.odds===false ? null : p, risk:RISK_N[o.m], main:o.m==='sig', s:`${SET.odds===false ? (p>=70?'把握較大':p>=50?'機會一半':'把握較小') : `成功率 ${p}%`}｜${o.ab.map(k=>`${ATTR_N[k]} ${Math.round(eff(k))}`).join('、')}${strong?`｜強項 +${strong}%`:''}${pk.v?`｜特技「${pk.n.join('、')}」+${pk.v}%`:''}${o.then?'｜成功後可再作一個選擇':''}${o.m==='sig'?'｜招牌：成功效果最大':''}`, f:() => resolveMoment(o, p, ctx, mc, grp, sc, st, done) }; });
+  const cx = { stake:ctx.stake, sub:ctx.sub, trail:st.a<st.b, sc:sc.t, min:st.min };
+  const sgn = v => (v>0?'+':'−') + Math.abs(v) + '%';
+  const optsOut = list.map(o => { const { p, strong, pk, mm } = oddsOf(o, ctx.lvl, cx);
+    const mtx = [mm.conf ? `自信 ${sgn(mm.conf)}` : '', mm.fat ? `疲勞 ${sgn(mm.fat)}` : '', mm.heart ? `熱誠 +${mm.heart}%（疲勞 +2）` : ''].filter(Boolean).join('、');
+    return { t:(o.m==='sig'?'★ ':o.heart?'♥ ':'') + o.t, pct:SET.odds===false ? null : p, risk:RISK_N[o.m], main:o.m==='sig', s:`${SET.odds===false ? (p>=70?'把握較大':p>=50?'機會一半':'把握較小') : `成功率 ${p}%`}｜${o.ab.map(k=>`${ATTR_N[k]} ${Math.round(eff(k))}`).join('、')}${strong?`｜強項 +${strong}%`:''}${pk.v?`｜特技「${pk.n.join('、')}」+${pk.v}%`:''}${mtx?`｜${mtx}`:''}${o.then?'｜成功後可再作一個選擇':''}${o.m==='sig'?'｜招牌：成功效果最大':''}${o.heart?'｜熱誠帶來的額外選項':''}`, f:() => resolveMoment(o, p, ctx, mc, grp, sc, st, done) }; });
+  if(note==='lo') optsOut.push({ t:'（冒險選項）', s:`熱誠只有 ${S.m.love}，你提不起勁冒險；熱誠達 ${LOVE_LO} 以上才會出現`, locked:true });
   if(sg && !sg.open) optsOut.push({ t:sg.o.t, s:`招牌選項：${sg.o.ab.map(k=>ATTR_N[k]).join('、')}再提升約 ${sg.short} 分即可解鎖`, locked:true });
   UI.choose('你的選擇？', optsOut);
 }
@@ -470,6 +476,7 @@ function momentEffects(o, ok, ctx){
     if(ok){ se.mo += (o.m==='sig' ? 0.1 : [0,0.03,0.05,0.08][Math.min(3,Math.round(mag))])*ms; if(o.k==='G') se.mg++; if(o.k==='A') se.ma++; if(o.k==='S') se.ms = (se.ms||0) + 1; out.push(meter('conf', mag*1.5*ms)); const tr=S.pro.trust; S.pro.trust=clamp(tr+(mag*1.4+(o.m==='sig'?2:0))*ms,0,100); if(Math.round(S.pro.trust-tr)>0) out.push(`主帥信任 +${Math.round(S.pro.trust-tr)}`); }
     else { se.mo -= (o.m==='bold'?0.05:0.03)*ms; out.push(meter('conf', -mag*ms)); S.pro.trust = clamp(S.pro.trust-(o.m==='bold'?2:1)*ms*dif().trust,0,100); }
   }
+  if(o.heart) out.push(meter('fat', 2));
   if(o.k==='G' && ok) S.flags.goals = (S.flags.goals||0)+1;
   if(o.m==='sig' && ok) S.flags.sigs = (S.flags.sigs||0)+1;
   return out.filter(Boolean);
@@ -489,9 +496,9 @@ function resolveMoment(o, p, ctx, mc, grp, sc, st, done){
 }
 /* 模擬：自動選擇成功率最高的方案（不顯示畫面） */
 function autoMoment(ctx, st, scIn){
-  const sc = scIn || sceneFor(st, ctx.bias), grp = scIn ? (scIn.grp || groupOf(sc)) : groupOf(sc), sg = scIn ? null : sigState(sc, ctx.lvl), list = sc.o.slice();
+  const sc = scIn || sceneFor(st, ctx.bias), grp = scIn ? (scIn.grp || groupOf(sc)) : groupOf(sc), sg = scIn ? null : sigState(sc, ctx.lvl), { list } = momentList(sc, grp, !!scIn);
   if(sg && sg.open) list.unshift(sg.o);
-  const cx = { stake:ctx.stake, sub:ctx.sub, trail:st.a<st.b, sc:sc.t };
+  const cx = { stake:ctx.stake, sub:ctx.sub, trail:st.a<st.b, sc:sc.t, min:st.min };
   const scored = list.map(o => ({ o, p:oddsOf(o, ctx.lvl, cx).p })).sort((a,b) => b.p - a.p);
   const { o, p } = scored[0], ok = chance(p);
   momentEffects(o, ok, ctx);
@@ -570,7 +577,7 @@ function statsHTML(r, st, m){
   else { const pa = Math.max(4, Math.round((POS[S.pos].g==='MID'?52:POS[S.pos].g==='DEF'?44:28)*f + N0(5))), pc = clamp(Math.round(68 + (S.ab.pas-50)*0.4 + ok*2 - ng*2 + N0(4)), 50, 97);
     const g = POS[S.pos].g;
     me = [['傳球', `${Math.round(pa*pc/100)}/${pa}`], ['傳球成功率', `${pc}%`], ['射門', r.g + Math.max(0, Math.round((g==='ATT'?2.4:g==='MID'?1:0.3)*f + (sh-50)*0.02 + N0(0.8)))],
-      ['關鍵傳球', r.a + Math.max(0, Math.round((g==='MID'?1.6:g==='ATT'?1:0.4)*f + N0(0.8)))], ['搶斷', Math.max(0, Math.round((g==='DEF'?3.2:g==='MID'?2:0.6)*f + N0(1)))], ['上陣', `${st.mins}'`]]; }
+      ['關鍵傳球', r.a + Math.max(0, Math.round((g==='MID'?1.6:g==='ATT'?1:0.4)*f + N0(0.8)))], ['搶斷', Math.round(st.kd||0) + Math.max(0, Math.round((g==='DEF'?3.2:g==='MID'?2:0.6)*f + N0(1)))], ['上陣', `${st.mins}'`]]; }
   return `<div class="st-teams"><b>${esc(r.home)}</b><b>${esc(r.opp)}</b></div>${T.map(bar).join('')}
   <h5>個人數據</h5><div class="st-me">${me.map(([n,v]) => `<div><b>${v}</b><small>${n}</small></div>`).join('')}</div>`;
 }

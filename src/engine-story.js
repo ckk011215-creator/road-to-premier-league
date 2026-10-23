@@ -4,13 +4,13 @@
 /* aca＝學院邀請倍數；trial＝試訓成功率加減；ret＝學院保留偏差；sch＝Scholarship 偏差；pro＝18 歲職業合約加減；
    nl＝非聯賽球員每年獲職業球會報價的機會；pl＝非英超球員每年獲英超球會報價的機會 */
 const DIFF = {
-  easy:   { n:'輕鬆', odds:6,  train:1.2,  inj:0.8,  trust:0.7,  aca:1, acaY:0.45, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:90, proCap:90, nl:0.1,    keep:0.2, plKeep:1,    young:0.5,  loan:0.8, debut:0.8, pl:1,     plB:3,  roleB:0,  roleY:-1.5,
+  easy:   { n:'輕鬆', odds:6,  train:1.2,  inj:0.8,  trust:0.7,  aca:1, acaY:0.57, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:90, proCap:90, nl:0.1,    keep:0.2, plKeep:1,    young:0.5,  loan:0.8, debut:0.8, pl:1,     plB:4,  roleB:0,  roleY:-1.5,
             d:'成長較快、受傷較少、主帥較寬容。約一半人可以入到學院，約五分一可以踢上英超。' },
-  normal: { n:'標準', odds:0,  train:1.1,  inj:1,    trust:1,    aca:1, acaY:0.40, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:88, proCap:90, nl:0.04,   keep:0.16, plKeep:1,   young:0.3,  loan:0.7, debut:0.7, pl:1,     plB:4,  roleB:0,  roleY:0,
+  normal: { n:'標準', odds:0,  train:1.1,  inj:1,    trust:1,    aca:1, acaY:0.60, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:88, proCap:90, nl:0.04,   keep:0.16, plKeep:1,   young:0.3,  loan:0.7, debut:0.7, pl:1,     plB:4,  roleB:0,  roleY:0,
             d:'原本的平衡。約三分一可以入到學院，約七分一可以踢上英超。' },
-  hard:   { n:'困難', odds:-5, train:1,    inj:1.2,  trust:1.3,  aca:1, acaY:0.37, trial:0,   ret:0,    sch:0,  pro:0,   retCap:92,  schCap:60, proCap:70, nl:0.03,   keep:0.1, plKeep:1,    young:0.05, loan:0.5, debut:0.5, pl:1,     plB:11, roleB:0,  roleY:-1,
+  hard:   { n:'困難', odds:-5, train:1,    inj:1.2,  trust:1.3,  aca:1, acaY:0.54, trial:0,   ret:0,    sch:0,  pro:0,   retCap:92,  schCap:60, proCap:70, nl:0.03,   keep:0.1, plKeep:1,    young:0.05, loan:0.5, debut:0.5, pl:1,     plB:13, roleB:0,  roleY:-1,
             d:'關鍵時刻成功率 −5%、受傷較多、主帥較嚴厲。約五分一可以入到學院，約十分一可以踢上英超。' },
-  real:   { n:'現實', odds:-6, train:0.8,  inj:1.25, trust:1.35, aca:1, acaY:0.5,  trial:-10, ret:-1.2, sch:-1, pro:-30, retCap:85,  schCap:38, proCap:20, nl:0.0003, keep:0.0015, plKeep:0.5, young:0.1,  loan:0.2, debut:0.1, pl:0.003, plB:-3, roleB:-4, roleY:-7,
+  real:   { n:'現實', odds:-6, train:0.8,  inj:1.25, trust:1.35, aca:1, acaY:0.85,  trial:-10, ret:-1.2, sch:-1, pro:-30, retCap:85,  schCap:38, proCap:20, nl:0.0003, keep:0.0015, plKeep:0.5, young:0.1,  loan:0.2, debut:0.1, pl:0.003, plB:-3, roleB:-4, roleY:-7,
             d:'參考現實世界的比例（已放寬五倍）：約十分一入到學院，約六十人之中一人簽到職業合約，約七百人之中只有一人踢上英超。' }
 };
 const dif = () => DIFF[(S && S.diff) || 'normal'] || DIFF.normal;
@@ -72,9 +72,9 @@ function injuryChoice(kind, w, n, cont){
     return;
   }
   UI.choose('隊醫問你：繼續比賽嗎？', [
-    { t:'打止痛針繼續', s:'只缺陣約 1 星期｜有機會令傷勢惡化', f:()=>{
-      if(chance(30)){ S.inj.w = w + ri(3,6); S.inj.n = `${n}（惡化）`; const t = fx({ trust:-2 }); UI.card('bad', '傷勢惡化', `止痛針藥力過後，傷勢明顯惡化。你需要休息 ${S.inj.w} 星期。${t?`<div class="fx">${t}</div>`:''}`); }
-      else { S.inj.w = 1; const t = fx({ trust:3, fans:2 }); UI.card('good', '帶傷作戰', `你咬緊牙關踢下去。主帥和球迷都看在眼裏。${t?`<div class="fx">${t}</div>`:''}`); }
+    { t:'打止痛針，帶傷比賽', s:'可以繼續上陣但表現下降（當作輕傷）｜有機會令傷勢惡化', f:()=>{
+      if(chance(30)){ injAdj(ri(3,6)); S.inj.n = `${n}（惡化）`; const t = fx({ trust:-2 }); UI.card('bad', '傷勢惡化', `止痛針藥力過後，傷勢明顯惡化。你需要休息 ${S.inj.w} 星期，期間不能比賽。${t?`<div class="fx">${t}</div>`:''}`); }
+      else { S.inj = { w:Math.max(2, Math.round(w*0.6)), n:`${n}（止痛針）`, sev:'minor' }; const t = fx({ trust:3, fans:2 }); UI.card('good', '帶傷作戰', `你咬緊牙關繼續比賽，主帥和球迷都看在眼裏。接下來 ${S.inj.w} 星期你仍然帶傷，表現會打折扣。${t?`<div class="fx">${t}</div>`:''}`); }
       cont(); } },
     { t:'按醫囑休息', s:`休息 ${w} 星期`, f:()=>{ UI.card('', '休息', `你接受了隊醫的建議。`); cont(); } } ]);
 }

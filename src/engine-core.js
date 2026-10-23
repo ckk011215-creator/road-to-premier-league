@@ -59,7 +59,7 @@ function eff(k){
   if(S.spurt && S.spurt.on && (k==='tec'||k==='pac')) x *= 0.92;
   /* 身高對頭球／制空的影響：與同齡平均身高比較 */
   if(k==='hea'){ x += (S.h - avgH(age))*0.12; }
-  return x;
+  return x - (typeof injPen==='function' ? injPen(k) : 0);
 }
 const avgH = a => a>=17 ? 175 : 117 + (a-6)*5.8;
 function ovrAt(pos, useEff=true){ const w = POS[pos].w; let v = 0; for(const k in w) v += (useEff?eff(k):S.ab[k])*w[k]; return v; }

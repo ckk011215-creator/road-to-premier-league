@@ -87,7 +87,7 @@ function euroOut(){ S.eu.out = true; if(S.cal) S.cal = S.cal.filter((s,i) => i<=
 function euroMatch(o, tag, opt, cb){
   const c = club(curClub()), se = S.season || {}, lg = LG[c.lg];
   let n = 2, sub = false, plays = true;
-  if(S.inj && S.inj.w>0) plays = false;
+  if(injSev()==='major') plays = false;
   else if(se.dev) plays = false;
   else if(se.r===0) n = opt.final ? 3 : chance(50) ? 3 : 2;
   else if(se.r===1){ n = 2; plays = chance(80); }
@@ -96,7 +96,7 @@ function euroMatch(o, tag, opt, cb){
   const venue = opt.neutral ? 0 : opt.home ? 1 : -1, diff = c.str - o.str + venue;
   if(!plays){
     const gf = poisson(clamp(1.35 + diff*0.06, 0.35, 3.2)), ga = poisson(clamp(1.3 - diff*0.06, 0.3, 3.2));
-    UI.card('', `${tag}：${c.n} ${gf}–${ga} ${o.n}`, S.inj && S.inj.w>0 ? '你仍在養傷，只能在看台觀戰。' : se.dev ? '你仍在預備組，沒有入選歐洲賽名單。' : '你今場沒有上陣。');
+    UI.card('', `${tag}：${c.n} ${gf}–${ga} ${o.n}`, injSev()==='major' ? '你仍在養傷，只能在看台觀戰。' : se.dev ? '你仍在預備組，沒有入選歐洲賽名單。' : '你今場沒有上陣。');
     cb({ gf, ga, played:false, sim:true }); return;
   }
   playMatch({ tag, hc:c.id, oc:o.ext ? null : o.id, home:c.n, opp:o.n, lvl:(o.str + Math.max(lg.par, 66))/2 + 1, diff, stake: opt.final ? 3 : 2, youth:false, n, sub, cup:true, euro:true },
@@ -238,7 +238,7 @@ function clubWorldCup(next){
   const grp = [world[0], world[1], anyClub(pick(EXT_EU.slice(0, 12))[0])].filter(Boolean);
   let pts = 0, gd = 0, gi = 0;
   const game = (o, tag, ko, done) => {
-    const play = role===0 || (role===1 && chance(75)) || (role===2 && chance(40));
+    const play = injSev()!=='major' && (role===0 || (role===1 && chance(75)) || (role===2 && chance(40)));
     if(!play){ const d = c.str-o.str, gf = poisson(clamp(1.35+d*0.06,0.3,3.2)), ga = poisson(clamp(1.3-d*0.06,0.3,3.2)); UI.card('', `${tag}：${c.n} ${gf}–${ga} ${o.n}`, '你今場沒有上陣。'); done({ gf, ga, played:false }); return; }
     playMatch({ tag:`世冠盃・${tag}`, hc:c.id, oc:o.ext ? null : o.id, home:c.n, opp:o.n, lvl:(o.str+70)/2+1, diff:c.str-o.str, stake:2, youth:false, n:role===0?2:1, sub:role===2, cup:true, intl:true },
       r => done({ ...r, played:true }));
