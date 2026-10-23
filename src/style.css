@@ -767,7 +767,7 @@ table.lb th{ text-align:left; color:var(--muted); font-weight:600; font-size:12.
 table.lb td{ padding:8px; border-bottom:1px solid var(--line); vertical-align:top } table.lb td small{ display:block; color:var(--muted); font-size:12px }
 table.lb td:first-child{ color:var(--muted); width:2em } table.lb tr.me td{ background:color-mix(in srgb, var(--bib) 16%, var(--card)) }
 table.lb tbody tr:nth-child(-n+3) td:first-child{ color:var(--gold); font-weight:900 }
-.dtag{ font-style:normal; font-size:11px; font-weight:800; padding:1px 7px; border-radius:10px; margin-left:6px; background:var(--line); vertical-align:2px } .dtag.hard{ background:var(--bad); color:#fff } .dtag.easy{ background:color-mix(in srgb, var(--pitch) 30%, var(--card)) }
+.dtag{ font-style:normal; font-size:11px; font-weight:800; padding:1px 7px; border-radius:10px; margin-left:6px; background:var(--line); vertical-align:2px } .dtag.hard{ background:var(--bad); color:#fff } .dtag.easy{ background:color-mix(in srgb, var(--pitch) 30%, var(--card)) } .dtag.real{ background:#1c1c1c; color:#f2b705 }
 .lb-end{ display:grid; gap:10px; margin-bottom:16px } .lb-up{ display:flex; gap:8px; flex-wrap:wrap } .lb-up .ren-in{ flex:1; min-width:180px } .lb-up .btn, .lb-end > .btn{ width:auto }
 
 /* ---------- 陣容、紀錄 ---------- */
@@ -776,3 +776,11 @@ table.sq tr.same td{ background:color-mix(in srgb, var(--bib) 9%, var(--card)) }
 em.tg.y{ background:color-mix(in srgb, var(--pitch) 25%, var(--card)) }
 table em.tg, .lb em.tg{ font-style:normal; font-size:11px; font-weight:700; background:var(--soft); color:var(--muted); border:1px solid var(--line); border-radius:8px; padding:0 6px; margin-left:6px; vertical-align:1px }
 table em.tg.y{ background:color-mix(in srgb, var(--pitch) 18%, var(--card)); color:var(--ink) }
+
+/* ---------- 隊徽 ---------- */
+svg.crest{ display:inline-block; vertical-align:-0.2em; margin-right:6px; flex:none; filter:drop-shadow(0 1px 0 rgba(0,0,0,.15)) }
+.mr-score b svg.crest:last-child{ margin:0 0 0 6px }
+.nb-vs b{ display:inline-flex; align-items:center } .nb-vs b svg.crest{ margin-right:8px }
+td.cl{ white-space:nowrap } .pc-club small.kitn{ margin-left:6px; opacity:.7; font-size:11px }
+ol.steps{ margin:6px 0 10px; padding-left:1.3em; display:grid; gap:4px }
+.sync-code{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:17px; letter-spacing:.06em; margin:6px 0; word-break:break-all }

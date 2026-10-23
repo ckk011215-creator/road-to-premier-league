@@ -1,10 +1,17 @@
 /* ================= 主帥風格、難度、記者會、傷患決策、代言、球會傳奇、退役後、報紙 ================= */
 
 /* ---------- 難度 ---------- */
+/* aca＝學院邀請倍數；trial＝試訓成功率加減；ret＝學院保留偏差；sch＝Scholarship 偏差；pro＝18 歲職業合約加減；
+   nl＝非聯賽球員每年獲職業球會報價的機會；pl＝非英超球員每年獲英超球會報價的機會 */
 const DIFF = {
-  easy:   { n:'輕鬆', odds:6,  train:1.12, inj:0.8, trust:0.7, d:'關鍵時刻成功率 +6%、成長較快、受傷較少、主帥較寬容' },
-  normal: { n:'標準', odds:0,  train:1,    inj:1,   trust:1,   d:'原本的平衡' },
-  hard:   { n:'困難', odds:-5, train:0.92, inj:1.2, trust:1.3, d:'成功率 −5%、成長較慢、受傷較多、失誤時主帥信任跌得更多' }
+  easy:   { n:'輕鬆', odds:6,  train:1.2,  inj:0.8,  trust:0.7,  aca:1, acaY:0.45, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:90, proCap:90, nl:0.1,    keep:0.2, plKeep:1,    young:0.5,  loan:0.8, debut:0.8, pl:1,     plB:5,  roleB:0,  roleY:-1.5,
+            d:'成長較快、受傷較少、主帥較寬容。約一半人可以入到學院，約五分一可以踢上英超。' },
+  normal: { n:'標準', odds:0,  train:1.1,  inj:1,    trust:1,    aca:1, acaY:0.43, trial:0,   ret:0,    sch:0,  pro:0,   retCap:100, schCap:88, proCap:90, nl:0.04,   keep:0.16, plKeep:1,   young:0.3,  loan:0.7, debut:0.7, pl:1,     plB:6,  roleB:0,  roleY:0,
+            d:'原本的平衡。約三分一可以入到學院，約七分一可以踢上英超。' },
+  hard:   { n:'困難', odds:-5, train:1,    inj:1.2,  trust:1.3,  aca:1, acaY:0.37, trial:0,   ret:0,    sch:0,  pro:0,   retCap:92,  schCap:60, proCap:70, nl:0.03,   keep:0.1, plKeep:1,    young:0.05, loan:0.5, debut:0.5, pl:1,     plB:11, roleB:0,  roleY:-1,
+            d:'關鍵時刻成功率 −5%、受傷較多、主帥較嚴厲。約五分一可以入到學院，約十分一可以踢上英超。' },
+  real:   { n:'現實', odds:-6, train:0.8,  inj:1.25, trust:1.35, aca:1, acaY:0.5,  trial:-10, ret:-1.2, sch:-1, pro:-30, retCap:85,  schCap:38, proCap:20, nl:0.0003, keep:0.0015, plKeep:0.5, young:0.1,  loan:0.2, debut:0.1, pl:0.003, plB:-3, roleB:-4, roleY:-7,
+            d:'參考現實世界的比例（已放寬五倍）：約十分一入到學院，約六十人之中一人簽到職業合約，約七百人之中只有一人踢上英超。' }
 };
 const dif = () => DIFF[(S && S.diff) || 'normal'] || DIFF.normal;
 
@@ -197,6 +204,7 @@ function seasonPaper(o){
   let hl, sub;
   if(pos===1 && played) hl = `${sn}助${c.n}稱王`;
   else if(hon.some(h=>/FA Cup/.test(h.t)) && played) hl = `溫布萊之夜！${sn}捧起 FA Cup`;
+  else if(hon.some(h=>/^(國王盃|意大利盃|德國盃|法國盃)冠軍/.test(h.t)) && played) hl = `${sn}捧起${hon.find(h=>/^(國王盃|意大利盃|德國盃|法國盃)冠軍/.test(h.t)).t.replace('冠軍','')}`;
   else if(aw.some(a=>/金靴/.test(a))) hl = `${row.g} 球！${sn}奪得金靴`;
   else if(aw.some(a=>/PFA 年度最佳球員/.test(a))) hl = `${sn}當選 PFA 年度最佳球員`;
   else if(up && played) hl = `${c.n}升班！${sn}功不可沒`;
@@ -210,8 +218,8 @@ function seasonPaper(o){
   sub = `${c.n}・${row.lg==='DEV'?'預備組':LG[lgKey].n}｜${row.app} 場${row.gk?`・${row.cs} 次零封`:`・${row.g} 球 ${row.a} 助攻`}・平均評分 ${row.app?row.rt.toFixed(2):'—'}`;
   const rv = rivalOf(), rs = S.rv && S.rv.seasons && S.rv.seasons.at(-1);
   const bt = S.W.boots && S.W.boots[lgKey] && S.W.boots[lgKey][0];
-  const side = [`${LG[lgKey].n}冠軍：${champ.n}`, bt ? `${LG[lgKey].short}金靴：${bt.n}（${cName(bt.c)}）${bt.g} 球` : '', S.cupWin && S.cupWin.fa ? `FA Cup 冠軍：${cName(S.cupWin.fa)}` : '', S.cupWin && S.cupWin.lc ? `聯賽盃冠軍：${cName(S.cupWin.lc)}` : '', rs && rv ? `同屆宿敵${rv.n}：平均評分 ${rs.rt.toFixed(2)}` : '', S.deals && S.deals.length ? `場外：${S.deals[0].n}` : ''].filter(Boolean);
-  const paper = PAPERS[S.year % PAPERS.length];
+  const side = [`${LG[lgKey].n}冠軍：${champ.n}`, bt ? `${LG[lgKey].short}金靴：${bt.n}（${cName(bt.c)}）${bt.g} 球` : '', ...Object.keys(CUPS).filter(k => isAbroadLg(lgKey) ? CUPS[k].win.includes(lgKey) : ['fa','lc'].includes(k)).map(k => S.cupWin && S.cupWin[k] ? `${CUPS[k].n}冠軍：${cName(S.cupWin[k])}` : ''), rs && rv ? `同屆宿敵${rv.n}：平均評分 ${rs.rt.toFixed(2)}` : '', S.deals && S.deals.length ? `場外：${S.deals[0].n}` : ''].filter(Boolean);
+  const paper = isAbroadLg(lgKey) ? CTY[LG[lgKey].cty].paper : PAPERS[S.year % PAPERS.length];
   UI.card('paper', '', `<div class="np"><div class="np-mast"><b>《${paper}》</b><span>${yr} 年 5 月・季終特刊</span></div><h2 class="np-hl">${esc(hl)}</h2><p class="np-sub">${esc(sub)}</p>
     <div class="np-body"><img src="${typeof playerURL==='function' ? playerURL(5) : ''}" alt=""><p>${esc(c.n)}今季於${LG[lgKey].n}排名第 ${pos}${up?'，成功升級':down?'，不幸降級':''}。${aw.length?`${esc(sn)}獲得${esc(aw.join('、'))}。`:''}${se.inj>=8?`季內因傷缺陣約 ${se.inj} 星期。`:''}</p></div>
     ${side.length?`<ul class="np-side">${side.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`);

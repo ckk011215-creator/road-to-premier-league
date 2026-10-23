@@ -172,14 +172,15 @@ function runSlot(done){
 }
 
 /* ---------- 比賽 ---------- */
-function poisson(l){ let k = 0, p = 1; const L = Math.exp(-l); do { k++; p *= R(); } while(p > L && k < 12); return k-1; }
+/* 卜瓦松分佈（反函數法，每次只用一個亂數） */
+function poisson(l){ let p = Math.exp(-l), s = p, k = 0; const u = R(); while(u > s && k < 11){ k++; p *= l/k; s += p; } return k; }
 /* 青訓比賽的對手（建立行事曆時決定，方便主頁預告） */
 function youthFixture(){
   const a = S.age;
   if(S.stage==='GR') return { tag: a<=10 ? `${ageGroup(a)} ${pick(['星期日聯賽','足球節盃賽','友誼賽'])}` : `${ageGroup(a)} 星期日聯賽`, home:S.gr, opp:pick(CITIES[S.city].gr.filter(x=>x!==S.gr)), lvl:E(a)*0.78, diff:r1(rf(-5,5)), n:2 };
   if(S.stage==='ACA'){ const o = pick(nearAcademies(true).filter(c=>c.id!==S.aca.club)) || pick(clubsIn('CH'));
     return { tag:`${ageGroup(a)} 學院賽`, home:`${cName(S.aca.club)} ${ageGroup(a)}`, opp:`${o.n} ${ageGroup(a)}`, oppId:o.id, lvl:E(a)*CAT_F[S.aca.cat]*rf(0.95,1.05), diff:r1((S.W.clubs[S.aca.club].str - o.str)*0.3 + rf(-3,3)), n:2 }; }
-  const cup = S.term===1 && chance(40), o = pick(Object.values(S.W.clubs).filter(c=>c.cat>0&&c.cat<=2&&c.id!==S.aca.club));
+  const cup = S.term===1 && chance(40), o = pick(Object.values(S.W.clubs).filter(c=>c.cat>0&&c.cat<=2&&c.id!==S.aca.club&&isEngClub(c)));
   return { tag: cup?'FA Youth Cup':'U18 英超聯', home:`${cName(S.aca.club)} U18`, opp:`${o.n} U18`, oppId:o.id, lvl:E(a)*0.97, diff:r1((S.W.clubs[S.aca.club].str - o.str)*0.3 + rf(-3,3)), stake:cup?2:1, n:3 };
 }
 function youthMatch(sl, next){
@@ -211,17 +212,17 @@ function proFixtureRun(sl, next){
 function proPlay(sl, se, c, lg, o, derby, lvlFirst, done){
   if(sl.friendly){ playMatch({ tag:'季前熱身賽', home:c.n, opp:o.n, lvl:lvlFirst, diff:c.str-o.str, stake:1, youth:false, n:2, friendly:true }, done); return; }
   if(se.dev){
-    if(!S.pro.debut && chance(16) && ovr() >= c.str-9){
+    if(!S.pro.debut && chance(16*dif().debut) && ovr() >= c.str-9){
       const gkx = S.pos==='GK';
       UI.card('gold','一隊傷兵', gkx ? `正選門將與後備門將同時受傷，主帥在賽前告訴你：「今晚由你正選。」` : `一隊有數人受傷，主帥說今晚你會坐在後備席。第 70 分鐘，他叫你熱身。`);
       playMatch({ tag:gkx ? `${lg.short}・緊急正選` : `${lg.short}・後備入替`, home:c.n, opp:o.n, lvl:lvlFirst, diff:c.str-o.str, stake:2, youth:false, n:gkx?3:1, sub:!gkx, league:true,
         after:() => { se.fd++; S.pro.debut = true; logLine(`${S.age} 歲${c.n}一隊首秀（對${o.n}）`); } }, done); return; }
-    const opp = pick(Object.values(S.W.clubs).filter(x=>x.cat>0&&x.id!==c.id));
+    const opp = pick(Object.values(S.W.clubs).filter(x=>x.cat>0&&x.id!==c.id&&x.lg===c.lg || x.cat>0&&x.id!==c.id&&isEngClub(c)&&isEngClub(x)));
     playMatch({ tag:c.lg==='PL'?'PL2':'U21 預備組', home:`${c.n} U21`, opp:`${opp.n} U21`, lvl:E(S.age)*0.97, diff:rf(-4,4), stake:1, youth:false, n:2, reserve:true }, done); return;
   }
   if(se.r===3){ playMatch({ tag:'預備組友誼賽', home:`${c.n} 預備組`, opp:`${o.n} 預備組`, lvl:lg.par-3, diff:rf(-3,3), stake:1, youth:false, n:1, reserve:true }, done); return; }
   const n = se.r===0 ? 3 : se.r===1 ? 2 : 1;
-  const tag = derby ? `${lg.short}・${derby}` : se.r===2 && S.pos==='GK' ? '聯賽盃・後備門將上陣' : `${lg.short}・第 ${S.lt ? S.lt.T[c.lg][c.id].p+1 : '—'} 輪`;
+  const tag = derby ? `${lg.short}・${derby}` : se.r===2 && S.pos==='GK' ? `${isAbroadLg(c.lg)?'盃賽':'聯賽盃'}・後備門將上陣` : `${lg.short}・第 ${S.lt ? S.lt.T[c.lg][c.id].p+1 : '—'} 輪`;
   if(!S.pro.debut){ S.pro.debut = true; logLine(`${S.age} 歲${c.n}一隊首秀`); }
   const rv = isRivalClub(o.id);
   playMatch({ tag: rv ? `${lg.short}・宿敵對決` : tag, hc:c.id, oc:o.id, home:c.n, opp:o.n, lvl:lvlFirst, diff:c.str-o.str + clubBonus(), stake:derby||rv?2:1, youth:false, n, sub:se.r===2, league:!(se.r===2 && S.pos==='GK') }, r => { if(rv && r) rivalAfter(r); pressConf(r, { rv, derby }, () => done(r)); });
@@ -236,7 +237,7 @@ function playMatch(m, next){
   const mins = m.sub ? [ri(66,88)] : Array.from({ length:m.n }, () => ri(6,88)).sort((x,y)=>x-y);
   for(let i=1;i<mins.length;i++) if(mins[i] <= mins[i-1]) mins[i] = Math.min(89, mins[i-1]+3);
   st.mins = m.sub ? 90 - mins[0] + 2 : 90;
-  const ctx = { tag:m.tag, opp:m.opp, lvl:m.lvl, stake:m.stake||1, youth:m.youth, ms:0.22, ts:0.08, home:m.home, sub:!!m.sub };
+  const ctx = { tag:m.tag, opp:m.opp, lvl:m.lvl, stake:m.stake||1, youth:m.youth, ms:0.22, ts:0.08, home:m.home, sub:!!m.sub, oc:m.oc };
   UI.card('prematch', m.tag, prematchHTML(m), null, { m });
   const run = manual => {
     let i = 0;
@@ -326,7 +327,8 @@ function reportHTML(r, st, m, out){
   const media = m.youth ? (S.stage==='GR' ? `家長群組：「${r.rt>=7.5?`今日 ${esc(S.first)} 踢得真好！`:r.rt>=6.6?'孩子們都盡力了。':'下星期再努力。'}」` : '')
     : m.reserve || m.friendly ? '' : `${pick(MEDIA)}：「${r.rt>=7.8?`${esc(fullName())}是全場焦點。`:r.rt>=6.8?`${esc(fullName())}表現穩定。`:`${esc(fullName())}需要證明自己。`}」`;
   const tabs = `<div class="mr-tabs" role="tablist"><button data-mtab="0" aria-selected="true">戰報</button><button data-mtab="1" aria-selected="false">技術統計</button><button data-mtab="2" aria-selected="false">雙方陣容</button></div>`;
-  return `<div class="mr-head"><span class="mr-res ${res==='勝'?'w':res==='負'?'l':'d'}">${res}</span><div class="mr-score"><b>${esc(r.home)}</b><strong>${r.gf} – ${r.ga}</strong><b>${esc(r.opp)}</b></div></div>
+  const cr = (id, sz) => id && typeof crestSVG==='function' ? crestSVG(id, sz) : '';
+  return `<div class="mr-head"><span class="mr-res ${res==='勝'?'w':res==='負'?'l':'d'}">${res}</span><div class="mr-score"><b>${cr(m.hc, 22)}${esc(r.home)}</b><strong>${r.gf} – ${r.ga}</strong><b>${esc(r.opp)}${cr(m.oc, 22)}</b></div></div>
   <div class="mr-grid"><div class="mr-rt ${r.rt>=7.5?'hi':r.rt<6.2?'lo':''}"><strong>${r.rt.toFixed(1)}</strong><small>評分</small></div>
     <div class="mr-st"><span><b>${gk?(r.cs?'是':'否'):r.g}</b>${gk?'零封':'入球'}</span><span><b>${r.a}</b>助攻</span><span><b>${r.mins}'</b>上陣</span></div>
     <div class="mr-motm"><small>全場最佳</small><b>${r.motm==='你'?'★ 你':esc(r.motm)}</b></div></div>
@@ -386,7 +388,7 @@ function momentStep(ctx, st, done, scIn){
   const avg = Math.round(sc.o[0].ab.reduce((s,k)=>s+eff(k),0)/sc.o[0].ab.length);
   const mc = UI.card('moment', `${ctx.tag}・對${esc(ctx.opp)}`, `<div class="score"><span>第 ${st.min} 分鐘</span><b>${st.a} – ${st.b}</b></div><p class="sc-t">${sc.t}</p><p>${sc.d}</p>
     <div class="vsbar"><div><small>你（相關能力）</small><b>${avg}</b></div><i>VS</i><div class="r"><small>對手水平</small><b>${Math.round(ctx.lvl)}</b></div></div>
-    <div class="pm-chips">${sc.when?`<span class="ctx">${WHEN_N[sc.when]}</span>`:''}<span>體能 ${100-S.m.fat}</span><span>自信 ${S.m.conf}</span>${S.spurt&&S.spurt.on?'<span>發育期 −4%</span>':''}</div>`, null, { scene:grp, min:st.min });
+    <div class="pm-chips">${sc.when?`<span class="ctx">${WHEN_N[sc.when]}</span>`:''}<span>體能 ${100-S.m.fat}</span><span>自信 ${S.m.conf}</span>${S.spurt&&S.spurt.on?'<span>發育期 −4%</span>':''}</div>`, null, { scene:grp, min:st.min, oc:ctx.oc });
   const sg = scIn ? null : sigState(sc, ctx.lvl), list = sc.o.slice();
   if(sg && sg.open) list.unshift(sg.o);
   const cx = { stake:ctx.stake, sub:ctx.sub, trail:st.a<st.b, sc:sc.t };
@@ -439,8 +441,8 @@ function autoMoment(ctx, st, scIn){
 /* ---------- 聯賽積分榜（逐輪模擬） ---------- */
 function seasonTableInit(){
   const T = {};
-  LG_ORDER.forEach(lg => { T[lg] = {}; clubsIn(lg).forEach(c => T[lg][c.id] = { p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0, s:r1(c.str + N0(2.5)) }); });
-  S.lt = { T, done:Object.fromEntries(LG_ORDER.map(l => [l, 0])) };
+  LG_TABLES.forEach(lg => { T[lg] = {}; clubsIn(lg).forEach(c => T[lg][c.id] = { p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0, s:r1(c.str + N0(2.5)) }); });
+  S.lt = { T, done:Object.fromEntries(LG_TABLES.map(l => [l, 0])) };
 }
 function clubBonus(){
   const se = S.season; if(!se || se.dev || se.r>=2 || !S.recent || !S.recent.length) return 0;
@@ -458,9 +460,29 @@ function simRound(lg, forced){
   shuffle(ids); for(let i=0;i+1<ids.length;i+=2) playPair(T, ids[i], ids[i+1]);
   S.lt.done[lg]++;
 }
+/* 季中只逐輪模擬你所在的聯賽（積分榜會顯示）；其他聯賽在季尾一次過結算，節省運算 */
 function leagueAdvance(p){
   if(!S.lt) seasonTableInit();
-  LG_ORDER.forEach(lg => { const target = Math.min(LG[lg].g, Math.floor(p*LG[lg].g)); while(S.lt.done[lg] < target) simRound(lg); });
+  const lg = S.pro ? curLg() : null; if(!lg || !S.lt.T[lg]) return;
+  const target = Math.min(LG[lg].g, Math.floor(p*LG[lg].g)); while(S.lt.done[lg] < target) simRound(lg);
+}
+function leagueFinish(){
+  if(!S.lt) seasonTableInit();
+  LG_TABLES.forEach(lg => { if(!S.lt.T[lg]) return;
+    if(S.lt.done[lg] > 0 || (S.pro && curLg()===lg)){ while(S.lt.done[lg] < LG[lg].g) simRound(lg); }
+    else fastSeason(lg); });
+}
+/* 快速結算整季：按球會實力與聯賽平均的差距，推算勝和負及入球 */
+function fastSeason(lg){
+  const T = S.lt.T[lg], ids = Object.keys(T), g = LG[lg].g; if(!ids.length) return;
+  const mean = ids.reduce((a,id) => a + T[id].s, 0) / ids.length;
+  ids.forEach(id => { const r = T[id], d = r.s - mean;
+    const pw = clamp(0.37 + d*0.028, 0.04, 0.88), pd = clamp(0.27 - Math.abs(d)*0.004, 0.12, 0.3);
+    let w = Math.round(g*pw + N0(Math.sqrt(g*pw*(1-pw)))), dr = Math.round(g*pd + N0(Math.sqrt(g*pd*(1-pd))));
+    w = clamp(w, 0, g); dr = clamp(dr, 0, g-w);
+    const lf = clamp(1.35 + d*0.055, 0.25, 3.4)*g, la = clamp(1.25 - d*0.055, 0.25, 3.4)*g;
+    Object.assign(r, { p:g, w, d:dr, l:g-w-dr, pts:w*3+dr, gf:Math.max(0, Math.round(lf + N0(Math.sqrt(lf)))), ga:Math.max(0, Math.round(la + N0(Math.sqrt(la)))) }); });
+  S.lt.done[lg] = g;
 }
 function leagueForced(lg, a, b, gfa, gfb){ if(!S.lt) seasonTableInit(); if(S.lt.done[lg] < LG[lg].g && S.lt.T[lg][a] && S.lt.T[lg][b]) simRound(lg, [a, b, gfa, gfb]); }
 function leagueRoundFor(lg){ if(!S.lt) seasonTableInit(); if(S.lt.done[lg] < LG[lg].g) simRound(lg); }

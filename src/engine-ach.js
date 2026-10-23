@@ -44,7 +44,12 @@ const ACH = [
   ['statue','不朽銅像','球會在球場外為你豎立銅像', () => hasHon(/銅像/)],
   ['hard','逆境中成長','以困難難度成為職業球員', () => S.diff==='hard' && S.stage==='PRO'],
   ['objall','超額完成','一季內達成全部賽季目標', () => (S.flags.objAll||0)>=1],
-  ['legend','英超傳奇','生涯結算達到「英超傳奇」', () => S.done && dominance()>=1600]
+  ['legend','英超傳奇','生涯結算達到「英超傳奇」', () => S.done && dominance()>=1600],
+  ['abroad','海外冒險','在西甲、意甲、德甲或法甲上陣', () => S.hist.some(r => LG_ABROAD.includes(r.lg) && r.app>0) || (isAbroad() && S.ss && S.ss.app>0)],
+  ['polyglot','四海為家','在兩個或以上的海外聯賽上陣', () => new Set(S.hist.filter(r => LG_ABROAD.includes(r.lg) && r.app>0).map(r => r.lg)).size>=2],
+  ['fluent','入鄉隨俗','把一種外語學到 80 或以上', () => Object.values(S.langs||{}).some(v => v>=80)],
+  ['euking','歐陸稱王','贏得西甲、意甲、德甲或法甲冠軍', () => hasHon(/^(西甲|意甲|德甲|法甲)冠軍/)],
+  ['homecoming','衣錦還鄉','由海外回流後在英超上陣', () => !!S.flags.returned && S.hist.some(r => r.lg==='PL' && r.app>0 && r.y > (S.flags.retY||0))]
 ];
 /* 檢查並記錄新成就；回傳新解鎖的名稱 */
 function checkAch(){

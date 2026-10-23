@@ -28,7 +28,8 @@ const UI = {
     const ic = !['moment','echo','summary','prematch','mreport','paper'].includes(tone) ? iconFor(tone, title) : null;
     d.innerHTML = (title?`<h4>${ic?`<img class="pxic" src="${iconURL(ic, ic==='shirt'?palFor(kitOf(S&&S.aca?S.aca.club:S&&S.gr)):null)}" alt="">`:''}<span>${title}</span></h4>`:'') + (html?`<div>${html}</div>`:'');
     $('feed').appendChild(d);
-    if(tone==='moment' && meta) try{ mountScene(d, meta.scene); }catch(e){ console.error(e); }
+    if(tone==='moment' && meta) try{ mountScene(d, meta.scene, false, meta.oc); }catch(e){ console.error(e); }
+    if(typeof sfx==='function'){ if(tone==='prematch') sfx('whistle'); else if(tone==='gold') sfx('level'); else if(tone==='mreport') sfx('whistle2'); }
     if(S && tone!=='echo' && title && !['moment'].includes(tone)){ S.flog = S.flog || []; S.flog.unshift({ d:slotDate(), t:title, x:String(html||'').replace(/<div class="fx">[\s\S]*$/,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,70), tone }); S.flog = S.flog.slice(0,30); }
     return d;
   },
@@ -42,7 +43,7 @@ const UI = {
       const ki = grid.querySelectorAll('button:not([disabled])').length; if(ki < 9) b.dataset.key = ki + 1;
       /* 放棄、退役、轉會等重要決定：要按兩次 */
       b.onclick = () => { if((o.warn||o.confirm) && !b.dataset.sure){ b.dataset.sure = 1; b.classList.add('sure'); b.insertAdjacentHTML('beforeend', '<small class="sure-t">再按一次確認</small>'); return; }
-        act(() => { if(o.t && !/^▸/.test(o.t)) UI.card('echo','',esc(o.t.replace(/<[^>]+>/g,''))); o.f(); }); };
+        sfx('click'); act(() => { if(o.t && !/^▸/.test(o.t)) UI.card('echo','',esc(o.t.replace(/<[^>]+>/g,''))); o.f(); }); };
       grid.appendChild(b); });
     a.appendChild(grid);
     refreshSide();
@@ -60,7 +61,7 @@ const UI = {
     $('act').appendChild(b); b.focus({ preventScroll:true });
   },
   autoSim(){ return !!UI.auto; },
-  save(){ if(S && !S.busy) store.set({ S, rs:_s }); },
+  save(){ if(S && !S.busy){ store.set({ S, rs:_s }); if(typeof cloudQueue==='function') cloudQueue(); } },
   end(ev){ store.clear(); closeModal(); renderEnd(ev); }
 };
 function closeModal(){ $('modal').hidden = true; document.body.classList.remove('modal-open'); $('feed').innerHTML = ''; $('act').innerHTML = ''; renderView(); }
@@ -90,7 +91,7 @@ function refreshSide(){
   const ms = [['fat','疲勞',S.m.fat,true],['love','熱誠',S.m.love],['conf','自信',S.m.conf], pro?['trust','主帥信任',Math.round(S.pro.trust)]:['coach','教練印象',S.m.coach]];
   $('side-card').style.setProperty('--kit', kit);
   $('side-card').innerHTML = `<div class="pc-top"><div class="pc-ovr"><b>${estOvr()}</b><small>評估</small></div><div class="pc-pos"><b>${POS[S.pos].n}</b><small>${S.age} 歲</small></div><img class="pc-av" src="${playerURL(5)}" alt=""></div>
-    <div class="pc-name">${esc(fullName())}</div><div class="pc-club">${esc(stageLabel())}</div>
+    <div class="pc-name">${esc(fullName())}</div><div class="pc-club">${S.pro ? crestSVG(curClub(), 14) : ''}${esc(stageLabel())}${S.pro ? `<small class="kitn">${KIT_PAT_N[kitDesign(curClub()).pat]}球衣</small>` : ''}</div>
     <div class="pc-attrs">${ATTRS.map(k => `<span class="${keyAttrs().slice(0,4).includes(k)?'key':''}"><b>${estAttr(k)}</b><i>${ATTR_N[k]}</i></span>`).join('')}</div>`;
   $('side-m').innerHTML = ms.map(([k,n,v,inv]) => `<div class="mt${(inv?v>=70:v<=25)?' bad':''}"><span>${n}<b>${v}</b></span><i><u style="width:${v}%"></u></i></div>`).join('') + (S.inj&&S.inj.w>0?`<div class="inj">傷患：${esc(S.inj.n)}，尚餘 ${S.inj.w} 星期</div>`:'');
   const sl = nextSlot();
@@ -127,12 +128,12 @@ function nextBanner(){
   const sl = nextSlot(); if(!sl) return '';
   let k = '', h = '', sub = '';
   if(sl.k==='cup'){ const st = S.cup && S.cup[sl.cup], o = st && club(st.opp), c = club(curClub());
-    k = cupRoundName(sl.cup, sl.r); h = `<div class="nb-vs"><b>${esc(c.n)}</b><i>VS</i><b>${esc(o ? o.n : '抽籤待定')}</b></div>`; sub = `淘汰賽：打和便加時，再和便互射十二碼${o ? `｜對手 ${LG[o.lg].short}・實力 ${Math.round(o.str)}` : ''}`; }
+    k = cupRoundName(sl.cup, sl.r); h = `<div class="nb-vs"><b>${crestSVG(c.id, 26)}${esc(c.n)}</b><i>VS</i><b>${o ? crestSVG(o.id, 26) : ''}${esc(o ? o.n : '抽籤待定')}</b></div>`; sub = `淘汰賽：打和便加時，再和便互射十二碼${o ? `｜對手 ${LG[o.lg].short}・實力 ${Math.round(o.str)}` : ''}`; }
   else if(sl.k==='match'){
     if(isYouth()){ const f = sl.fx; k = f.tag; h = `<div class="nb-vs"><b>${esc(f.home)}</b><i>VS</i><b>${esc(f.opp)}</b></div>`; sub = f.diff>2?'我方較強':f.diff<-2?'對手較強':'實力相若'; }
     else { const c = club(curClub()), { o, derby } = fixtureOpp(sl), se = S.season || {};
       k = sl.friendly ? '季前熱身賽' : derby ? `${LG[c.lg].short}・${derby}` : se.dev ? (c.lg==='PL'?'PL2':'U21 預備組') : `${LG[c.lg].short}・聯賽`;
-      h = `<div class="nb-vs"><b>${esc(c.n)}</b><i>VS</i><b>${esc(se.dev&&!sl.friendly?'預備組對手':o.n)}</b></div>`; sub = `你的角色：${se.r!=null?roleTxt():'—'}${!se.dev?`｜對手實力 ${Math.round(o.str)}`:''}`; }
+      h = `<div class="nb-vs"><b>${crestSVG(c.id, 26)}${esc(c.n)}</b><i>VS</i><b>${se.dev&&!sl.friendly ? '' : crestSVG(o.id, 26)}${esc(se.dev&&!sl.friendly?'預備組對手':o.n)}</b></div>`; sub = `你的角色：${se.r!=null?roleTxt():'—'}${!se.dev?`｜對手實力 ${Math.round(o.str)}`:''}`; }
   } else if(sl.k==='start'){ k = isYouth() ? TERMS_Y[S.term] : TERMS_P[S.term]; h = `<div class="nb-h">${isYouth()?'新學期開始':S.term===2?'一月轉會窗':'上半季開始'}</div>`; sub = isYouth() ? '學期事件、購買裝備（新學年）' : '確認角色與外借機會'; }
   else if(sl.k==='pre'){ k = '季前'; h = `<div class="nb-h">季前集訓</div>`; sub = '新賽季的角色、主帥與合約'; }
   else if(sl.k==='event'){ k = '生活'; h = `<div class="nb-h">生活事件</div>`; sub = '球場以外的事情'; }
@@ -147,7 +148,7 @@ function viewHome(){
   /* 積分榜（職業）或同屆排名（青訓） */
   let table;
   if(S.stage==='PRO' && S.lt){ const lg = curLg(), my = curClub(), rows = tableOf(lg);
-    table = sec(`${LG[lg].n}積分榜`, `<div class="lt"><table><thead><tr><th></th><th>球會</th><th>賽</th><th>得失</th><th>分</th></tr></thead><tbody>${rows.map((x,i) => `<tr class="${x.id===my?'me':''}${i<1?' up':''}${i>=rows.length-3?' dn':''}"><td>${i+1}</td><td>${esc(cName(x.id))}</td><td>${x.p}</td><td>${x.gf-x.ga>0?'+':''}${x.gf-x.ga}</td><td><b>${x.pts}</b></td></tr>`).join('')}</tbody></table></div>`, 'span4 tall'); }
+    table = sec(`${LG[lg].n}積分榜`, `<div class="lt"><table><thead><tr><th></th><th>球會</th><th>賽</th><th>得失</th><th>分</th></tr></thead><tbody>${rows.map((x,i) => `<tr class="${x.id===my?'me':''}${i<1?' up':''}${i>=rows.length-3?' dn':''}"><td>${i+1}</td><td class="cl">${crestSVG(x.id, 13)}${esc(cName(x.id))}</td><td>${x.p}</td><td>${x.gf-x.ga>0?'+':''}${x.gf-x.ga}</td><td><b>${x.pts}</b></td></tr>`).join('')}</tbody></table></div>`, 'span4 tall'); }
   else { const me = { n:'你', v:Math.round(perf()), st:stageLabel(), me:true };
     const list = [me, ...S.cohort.filter(n=>n.st!=='QUIT').map(n => ({ n:n.n, v:Math.round(npcPerf(n, S.age)), st:npcStatusTxt(n), tag:n.tag }))].sort((a,b)=>b.v-a.v);
     table = sec('同屆排名', `<p class="hint">按教練評估排列，只供參考。</p><div class="lt"><table><thead><tr><th></th><th>球員</th><th>現況</th><th>評估</th></tr></thead><tbody>${list.map((x,i) => `<tr class="${x.me?'me':''}"><td>${i+1}</td><td>${esc(x.n)}${x.tag==='friend'?' <em class="tg">好友</em>':x.tag==='rival'?' <em class="tg">對手</em>':''}</td><td class="hint">${esc(x.st)}</td><td><b>${x.v}</b></td></tr>`).join('')}</tbody></table></div>`, 'span4 tall'); }
@@ -266,8 +267,8 @@ function renderEnd(ev){
   const mates = S.cohort.map(n => `<div class="npc"><span>${esc(n.n)}</span><span class="hint">${POS[n.pos].n}</span><small>${npcStatusTxt(n)}${n.hist.length?`｜${esc(n.hist.slice(-3).join('；'))}`:''}</small></div>`).join('');
   const proMates = S.cohort.filter(n=>n.hist.some(h=>/職業合約|英超|英冠|英甲|英乙/.test(h))).length;
   const tl = S.log.map(l => `<div><b>${l.age}</b><span>${esc(l.t)}</span></div>`).join('');
-  $('end').innerHTML = `<div class="hero"><div class="wrap"><div class="end-px"><img src="${playerURL(6)}" alt="">${S.honours.some(h=>/英超冠軍|FA Cup|世界盃（冠軍|歐洲國家盃（冠軍/.test(h.t))?`<img src="${iconURL('trophy',null,6)}" alt="">`:''}</div><div class="eyebrow">生涯結算</div><div class="tier">${ev.tier}</div><p class="lede">${esc(fullName())}・${esc(S.endReason||'')}</p>
-    <div class="endstats"><div><b>${ev.sc}</b><span>稱霸指數</span></div><div><b>${cs.app}</b><span>職業出場</span></div><div><b>${isGK()?cs.cs:cs.g}</b><span>${isGK()?'零封':'入球'}</span></div><div><b>${pl.app}</b><span>英超出場</span></div></div></div></div>
+  $('end').innerHTML = `<div class="hero"><div class="wrap"><div class="end-px"><img src="${playerURL(6)}" alt="">${S.honours.some(h=>/英超冠軍|FA Cup|世界盃（冠軍|歐洲國家盃（冠軍|^(西甲|意甲|德甲|法甲)冠軍/.test(h.t))?`<img src="${iconURL('trophy',null,6)}" alt="">`:''}</div><div class="eyebrow">生涯結算</div><div class="tier">${ev.tier}</div><p class="lede">${esc(fullName())}・${esc(S.endReason||'')}</p>
+    <div class="endstats"><div><b>${ev.sc}</b><span>稱霸指數</span></div><div><b>${cs.app}</b><span>職業出場</span></div><div><b>${isGK()?cs.cs:cs.g}</b><span>${isGK()?'零封':'入球'}</span></div><div><b>${pl.app}</b><span>英超出場</span></div>${ev.ab && ev.ab.app ? `<div><b>${ev.ab.app}</b><span>海外出場</span></div>` : ''}</div></div></div>
     <div class="wrap panel">
     ${hon?`<h3>榮譽</h3><div class="honours">${hon}</div>`:''}
     ${rows?`<h3>職業數據</h3><div class="tablewrap"><table class="hist"><thead>${histHead()}</thead><tbody>${rows}</tbody></table></div>`:''}
@@ -399,7 +400,7 @@ function stepBody(id){
     <dt>身體</dt><dd>預計 ${proj} 厘米・${BODY_N[CF.body]}・${FOOT_N[CF.foot]}</dd><dt>血統</dt><dd>${H.n}</dd>
     <dt>位置</dt><dd>${sp?`${sp.n}${r?`・${r.n}（${r.id}）`:''}`:'未定'}</dd><dt>性格</dt><dd>${TRAIT_POS[CF.posTrait].n}・${TRAIT_NEG[CF.negTrait].n}</dd></dl>
     <p class="hint">父母性格、兄弟姊妹、學校及家中是否有車，於生涯開始後隨機決定。</p></div><div class="cf-cap">${cp.html}</div></div>
-    <div class="cf-diff"><h3>難度</h3>${opts('diff', Object.entries(DIFF).map(([k,v]) => [k, v.n, v.d]), CF.diff||'normal', 3)}</div>`; }
+    <div class="cf-diff"><h3>難度</h3>${opts('diff', Object.entries(DIFF).map(([k,v]) => [k, v.n, v.d]), CF.diff||'normal', 2)}</div>`; }
   return '';
 }
 function renderCreate(){
@@ -520,12 +521,12 @@ function renderStart(){
       <div class="slot-b"><button class="btn main sm" data-cont="${i}"><b>繼續 ▸</b></button><button class="btn sm" data-exp="${i}"><b>匯出</b></button><button class="btn sm warn" data-del="${i}"><b>刪除</b></button></div></div>`
       : `<div class="slot empty"><small>存檔 ${i+1}</small><b>空置</b><span>開始新生涯時會使用這一格。</span></div>`).join('')}
   </div>
-  <div class="start-set"><button class="verlink" id="s-log">v${GAME_VER}・更新日誌</button><span><button class="btn sm" id="s-lb"><b>排行榜</b></button><button class="btn sm" id="s-imp"><b>匯入存檔</b></button><button class="btn sm" id="s-set"><b>⚙ 設定</b></button></span></div>
+  <div class="start-set"><button class="verlink" id="s-log">v${GAME_VER}・更新日誌</button><span><button class="btn sm" id="s-inst" hidden><b>安裝到主畫面</b></button><button class="btn sm" id="s-lb"><b>排行榜</b></button><button class="btn sm" id="s-cloud"><b>雲端存檔</b></button><button class="btn sm" id="s-imp"><b>匯入存檔</b></button><button class="btn sm" id="s-set"><b>⚙ 設定</b></button></span></div>
   ${START_MSG ? `<div class="mk-msg ${START_MSG.ok?'ok':''}" id="s-msg">${esc(START_MSG.t)}</div>` : ''}
   <details class="note"><summary>這是甚麼遊戲？</summary><p>一段英格蘭足球員的人生：由六、七歲參加星期日聯賽開始，經歷學院試訓、保留或被放棄、16 歲 Scholarship、17 歲職業合約、外借及升降級，目標是稱霸英超。被放棄不代表終結：非聯賽同樣有出路。</p><p>能力不會直接顯示，你只會看到教練評語與球探估算。球會以 2025/26 賽季為起點，其後升降級由遊戲模擬；學院級別經遊戲簡化。</p></details>`;
   try{ $('hp1').src = iconURL('player', palFor('#f2b705', lookOf('hero')), 6); $('hp2').src = iconURL('kick', palFor('#f2b705', lookOf('hero')), 6); $('hpb').src = iconURL('ball', null, 6); }catch(e){}
   $('s-new').onclick = () => { if(!full) openCreate(); };
-  $('s-set').onclick = openSettings; $('s-imp').onclick = () => openImport(); $('s-log').onclick = openChangelog; $('s-lb').onclick = () => openBoard(lbOn() ? 'global' : 'local'); START_MSG = null;
+  $('s-set').onclick = openSettings; $('s-imp').onclick = () => openImport(); $('s-log').onclick = openChangelog; $('s-lb').onclick = () => openBoard(lbOn() ? 'global' : 'local'); $('s-cloud').onclick = openCloud; pwaButton(); START_MSG = null;
   document.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => openExport(+b.dataset.exp));
   document.querySelectorAll('[data-cont]').forEach(b => b.onclick = () => { const i = +b.dataset.cont, sv = store.get(i), mg = migrateS(sv.S);
     if(!mg.ok){ START_MSG = { ok:false, t:mg.msg }; renderStart(); return; }
@@ -574,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('b-year').onclick = () => doAdvance(true, true);
   $('feed').addEventListener('click', feedClick);
   document.addEventListener('keydown', e => { if(e.key===' ' && !$('game').hidden && $('modal').hidden && $('menu').hidden && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)){ e.preventDefault(); doAdvance(false); } });
-  applySet(); renderStart(); show('start');
+  applySet(); renderStart(); show('start'); pwaInit();
 });
 
 /* ---------- 存檔改名 ---------- */
@@ -629,7 +630,17 @@ function viewLife(){
     : sec('裝備', `<p class="hint">青訓期每個新學年開始時可用零用錢購買裝備。</p><p>已擁有：${esc(owned.join('、')||'沒有')}</p>`, 'span7');
   const style = sec('造型', `<p class="hint">隨時可以轉換髮型、鬍鬚、頭帶、紋身與波鞋顏色（膚色不能更改）。</p>${lookPicker(myLook(), S.pos==='GK' ? GK_KIT : clubKit(), { noSkin:true })}`, 'span12');
   const deals = S.pro ? sec('代言', S.deals && S.deals.length ? `<ul class="obj">${S.deals.map(d => `<li class="ok"><b>${esc(d.n)}</b><small>每季 ${money(d.pay)}・${d.y} 年起</small></li>`).join('')}</ul>` : '<p class="hint">球迷人氣達 55 或以上，品牌便有機會在季前找你代言。人氣跌穿 35 會被終止合約。</p>', 'span12') : '';
-  return `<div class="pgrid">${sav}${ag}${shop}${deals}${style}</div>`;
+  return `<div class="pgrid">${sav}${abroadHTML()}${ag}${shop}${deals}${style}</div>`;
+}
+/* 海外生活：語言、適應、家人、語言老師 */
+function abroadHTML(){
+  const langs = Object.entries(S.langs || {}).filter(([,v]) => v>0);
+  if(!isAbroad()) return langs.length ? sec('語言', `<p>${langs.map(([c,v]) => `${CTY[c].lang} <b>${Math.round(v)}</b>`).join('　')}</p><p class="hint">在海外學會的語言會一直保留；再次到同一個國家時會較快適應。</p>`, 'span12') : '';
+  const a = S.abroad, c = CTY[a.cty], l = langOf(a.cty), ad = Math.round(a.adapt), pen = abroadPen(), fee = Math.round(S.pro.wage*2/50)*50;
+  const bar = (n, v, t) => `<div class="rel"><span>${n}<b>${v}</b></span><i><u style="width:${v}%"></u></i><small>${t}</small></div>`;
+  return sec(`海外生活・${c.n}`, `${bar(c.lang, l, l>=70?'流利':l>=40?'可以日常溝通':l>=15?'只懂簡單句子':'幾乎不懂')}${bar('適應', ad, adaptN(ad))}
+    <p class="hint">在${esc(cityN())}的第 ${a.n+1} 季｜家人：${a.fam==='with'?'一起生活':a.fam==='alone'?'留在英格蘭':'—'}｜${pen>=0.5?`適應不足：主帥起用你的機會略為下降（−${pen.toFixed(1)}）`:'已經融入球隊'}。語言與適應每半季都會進步，語言老師、家人陪伴與良好的隊友關係會加快進度。</p>
+    <div class="lf-b"><button class="btn sm ${a.tutor?'':'main'}" data-tutor ${!a.tutor && (S.money||0) < fee ? 'disabled' : ''}><b>${a.tutor?'停止語言課程':`聘請語言老師（每季 ${money(fee)}）`}</b></button></div>`, 'span12');
 }
 function bindLife(){
   const v = $('g-view');
@@ -637,7 +648,8 @@ function bindLife(){
   v.querySelectorAll('[data-agask]').forEach(b => b.onclick = () => { askAgent(); UI.save(); renderView(); });
   v.querySelectorAll('[data-agfire]').forEach(b => b.onclick = () => { if(!b.dataset.sure){ b.dataset.sure = 1; b.innerHTML = '<b>確定解約？</b>'; return; } fireAgent(); UI.save(); renderView(); });
   bindLook(v, () => myLook(), nv => { S.look = nv; }, () => { UI.save(); keepScroll(renderView); });
-  v.querySelectorAll('[data-life]').forEach(b => b.onclick = () => { if(buyLife(b.dataset.life)){ UI.save(); renderView(); } });
+  v.querySelectorAll('[data-life]').forEach(b => b.onclick = () => { if(buyLife(b.dataset.life)){ sfx('coin'); UI.save(); renderView(); } });
+  v.querySelectorAll('[data-tutor]').forEach(b => b.onclick = () => { const a = S.abroad; if(!a) return; if(a.tutor) a.tutor = false; else { const fee = Math.round(S.pro.wage*2/50)*50; if((S.money||0) < fee) return; S.money -= fee; a.tutor = true; addLang(3); sfx('coin'); } UI.save(); renderView(); });
 }
 
 /* ---------- 設定 ---------- */
@@ -646,9 +658,12 @@ const SET_OPTS = [
   ['theme', '主題', [['auto','跟隨系統'],['light','淺色'],['dark','深色']], 'auto'],
   ['anim', '比賽動畫', [['1','開啟'],['0','關閉']], '1', '關閉後關鍵時刻不顯示像素球場（戰報回放仍可使用）'],
   ['odds', '成功率', [['1','顯示數字'],['0','只顯示把握程度']], '1', '只顯示「把握較大／機會一半／把握較小」，增加挑戰性'],
-  ['match', '比賽方式', [['ask','每場詢問'],['play','一律親自上陣'],['sim','一律模擬']], 'ask', '選擇「一律」可減少每場比賽前的點擊']
+  ['match', '比賽方式', [['ask','每場詢問'],['play','一律親自上陣'],['sim','一律模擬']], 'ask', '選擇「一律」可減少每場比賽前的點擊'],
+  ['sfx', '音效', [['1','開啟'],['0','關閉']], '1', '入球歡呼、哨聲、撲救等'],
+  ['music', '背景音樂', [['1','開啟'],['0','關閉']], '0', '8 位元風格的循環音樂']
 ];
-const setVal = k => { const v = SET[k]; if(k==='anim' || k==='odds') return v===false ? '0' : '1'; return v==null ? SET_OPTS.find(o=>o[0]===k)[3] : String(v); };
+const BOOL_SET = { anim:true, odds:true, sfx:true, music:false };
+const setVal = k => { const v = SET[k]; if(k in BOOL_SET) return (v==null ? BOOL_SET[k] : v) ? '1' : '0'; return v==null ? SET_OPTS.find(o=>o[0]===k)[3] : String(v); };
 function applySet(){
   const r = document.documentElement;
   r.style.setProperty('--fz', SET.fz || 1);
@@ -661,7 +676,7 @@ function settingsBody(back){
   body.innerHTML = SET_OPTS.map(([k, n, opts, , d]) => `<div class="setrow"><b>${n}</b>${d?`<small>${d}</small>`:''}<div class="seg" role="group" aria-label="${n}">${opts.map(([v,t]) => `<button data-sk="${k}" data-sv="${v}" aria-pressed="${setVal(k)===v}">${t}</button>`).join('')}</div></div>`).join('')
     + `<button class="btn main" id="set-back"><b>完成</b></button>`;
   body.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => { const k = b.dataset.sk, v = b.dataset.sv;
-    SET[k] = k==='fz' ? +v : (k==='anim' || k==='odds') ? v==='1' : v; saveSet(); settingsBody(back); });
+    SET[k] = k==='fz' ? +v : (k in BOOL_SET) ? v==='1' : v; saveSet(); if(k==='music'){ if(SET.music) musicStart(); else musicStop(); } if(k==='sfx' && SET.sfx) sfx('click'); settingsBody(back); });
   $('set-back').onclick = () => { $('menu-h').textContent = '選單'; back ? back() : closeMenu(); };
 }
 function openSettings(){ $('menu').hidden = false; settingsBody(null); }
@@ -678,13 +693,15 @@ function viewMarket(){
   const il = interestList();
   const win = S.term<2 ? (S.term===0 ? '一月轉會窗：主要是外借機會' : '一月轉會窗即將開啟：主要是外借機會') : '賽季結束後：夏季轉會窗';
   const interest = sec('轉會傳聞', `<p class="hint">下一個轉會窗：${win}。以下為傳媒報道，不代表一定會有報價；表現、球迷人氣、經紀人與轉會要求都會影響興趣。</p>
-    ${il.length ? `<div class="mk">${il.map(({c,lv}) => `<div class="mk-r"><b>${esc(c.n)}</b><span class="hint">${LG[c.lg].short}・實力 ${Math.round(c.str)}・預計${ROLES[roleFor(c)]}</span><i class="lv lv${lv}">${IL[lv]}</i></div>`).join('')}</div>` : '<p>暫時沒有球會關注你。</p>'}`, 'span7');
+    ${il.length ? `<div class="mk">${il.map(({c,lv}) => `<div class="mk-r"><b>${crestSVG(c.id, 16)}${esc(c.n)}</b><span class="hint">${LG[c.lg].short}・實力 ${Math.round(c.str)}・預計${ROLES[roleFor(c)]}</span><i class="lv lv${lv}">${IL[lv]}</i></div>`).join('')}</div>` : '<p>暫時沒有球會關注你。</p>'}`, 'span7');
   const young = S.age<=22 && rc.r>=2 && !p.loan && !p.semi && S.term<2;
   const canRenew = !p.loan && !p.semi && p.cyrs<=2 && p.renewAsk!==S.year;
   const acts = sec('行動', `${MKT_MSG?`<div class="mk-msg ${MKT_MSG.ok?'ok':''}">${esc(MKT_MSG.t)}</div>`:''}<div class="opts" style="--cols:1">
     <button class="opt" data-mk="renew" ${canRenew?'':'disabled'}><span class="ot"><b>要求續約</b></span><small>${p.loan||p.semi?'外借或半職業期間不適用':p.cyrs>2?'合約尚餘兩年或以下才可提出':p.renewAsk===S.year?'今季已經提出過':'主帥信任 60 或以上、而且是正選或輪換球員，球會才會答應'}</small></button>
     <button class="opt" data-mk="list" ${p.loan||p.listed===S.year?'disabled':''}><span class="ot"><b>提出轉會要求</b><i class="cost">信任 −8</i></span><small>${p.listed===S.year?'已經提出':'夏季轉會窗會有更多報價（包括較低級別球會）；主帥、隊友與球迷都會不滿'}</small></button>
     ${young?`<button class="opt" data-mk="loan" ${S.flags.wantLoan?'disabled':''}><span class="ot"><b>申請外借</b></span><small>${S.flags.wantLoan?'已經申請：一月轉會窗會有更多外借機會':'一月轉會窗較易獲外借到較低級別爭取上陣'}</small></button>`:''}
+    ${!p.semi && S.age>=18 ? (isAbroad() ? `<button class="opt" data-mk="home" ${S.flags.homeWish===S.year?'disabled':''}><span class="ot"><b>表示希望回流英格蘭</b></span><small>${S.flags.homeWish===S.year?'已表態：夏季轉會窗會有更多英格蘭球會報價':'夏季轉會窗較易收到英格蘭球會報價'}</small></button>`
+      : `<button class="opt" data-mk="abroad" ${S.flags.abroadWish===S.year?'disabled':''}><span class="ot"><b>表示希望到海外發展</b><i class="cost">信任 −2</i></span><small>${S.flags.abroadWish===S.year?'已表態：夏季轉會窗較易收到海外報價':'夏季轉會窗較易收到西甲、意甲、德甲或法甲球會的報價'}</small></button>`) : ''}
     ${a?`<button class="opt" data-mk="agent" ${p.agentAsk===S.year?'disabled':''}><span class="ot"><b>請經紀人物色球會</b></span><small>${p.agentAsk===S.year?'已委託：季尾會帶來報價':`${AGENTS[S.agent.type].n}會在夏季轉會窗帶來額外報價`}</small></button>`:`<button class="opt" data-mk="golife"><span class="ot"><b>聘請經紀人</b></span><small>前往「生活」頁</small></button>`}
   </div>`, 'span5');
   const moves = S.log.filter(l => l.age>=17 && /加盟|外借|續約|轉會要求|收購|行政接管|職業合約/.test(l.t)).slice(-10).reverse();
@@ -698,6 +715,8 @@ function bindMarket(){
     if(k==='renew') MKT_MSG = askRenew();
     if(k==='loan'){ S.flags.wantLoan = 1; MKT_MSG = { ok:true, t:'經紀人開始聯絡低級別球會，一月轉會窗會有更多外借機會。' }; }
     if(k==='agent'){ askAgent(); MKT_MSG = { ok:true, t:'經紀人答應會在夏季轉會窗前聯絡多間球會。' }; }
+    if(k==='abroad'){ S.flags.abroadWish = S.year; fx({ trust:-2 }); MKT_MSG = { ok:true, t:'消息傳到歐洲：幾間海外球會開始留意你。' }; }
+    if(k==='home'){ S.flags.homeWish = S.year; MKT_MSG = { ok:true, t:'經紀人開始聯絡英格蘭的球會。' }; }
     if(k==='golife'){ setTab('life'); return; }
     UI.save(); renderView(); });
 }
@@ -907,7 +926,7 @@ function boardTable(rows, mine){
 }
 function openBoard(tab='global', diff=''){
   const tabs = `<div class="mr-tabs"><button data-bt="global" aria-selected="${tab==='global'}">全球排行榜</button><button data-bt="local" aria-selected="${tab==='local'}">我的紀錄</button></div>`;
-  const filt = `<div class="seg lb-f">${[['','全部'],['easy','輕鬆'],['normal','標準'],['hard','困難']].map(([k,n]) => `<button data-bd="${k}" aria-pressed="${diff===k}">${n}</button>`).join('')}</div>`;
+  const filt = `<div class="seg lb-f">${[['','全部'],['easy','輕鬆'],['normal','標準'],['hard','困難'],['real','現實']].map(([k,n]) => `<button data-bd="${k}" aria-pressed="${diff===k}">${n}</button>`).join('')}</div>`;
   let body;
   if(tab==='local') body = boardTable(recAll().filter(r => !diff || r.diff===diff)) + '<p class="hint">本機紀錄只儲存在這部裝置的瀏覽器。</p>';
   else body = lbOn() ? '<p class="hint" id="lb-load">載入中……</p>' : '<p class="hint">全球排行榜將於遊戲正式上線後開放。現時可以查看「我的紀錄」。</p>';
@@ -956,4 +975,70 @@ function recordsHTML(){
   const all = [...act, ...W.hof.map(h => ({ n:h.n, c:h.c, g:h.cg, act:false })), { n:`★ ${fullName()}`, c:S.pro ? S.pro.club : null, g:careerStats().g, me:true }].sort((a,b) => b.g-a.g).slice(0,10);
   const top = `<div class="tablewrap"><table class="hist"><thead><tr><th></th><th>球員</th><th>球會</th><th>入球</th></tr></thead><tbody>${all.map((x,i) => `<tr class="${x.me?'me':''}"><td>${i+1}</td><td>${esc(x.n)}${!x.act && !x.me ? ' <em class="tg">已退役</em>' : ''}</td><td>${esc(cName(x.c))}</td><td class="num">${x.g}</td></tr>`).join('')}</tbody></table></div><p class="hint">只計算你成為職業球員之後的賽季。</p>`;
   return `${sec(`${LG[lg].n}歷屆冠軍與金靴`, tab(lg), 'span6')}${sec('歷史射手榜', top, 'span6')}`;
+}
+
+/* ---------- PWA：可安裝、離線遊玩（只在正式網站啟用，不在 Claude 預覽中啟用） ---------- */
+let PWA_EVT = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function pwaInit(){
+  if((location.protocol !== 'https:' && location.hostname !== 'localhost') || window.claude || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); PWA_EVT = e; pwaButton(); });
+  window.addEventListener('appinstalled', () => { PWA_EVT = null; pwaButton(); });
+  pwaButton();
+}
+function pwaButton(){
+  const b = $('s-inst'); if(!b) return;
+  const can = !isStandalone() && location.protocol === 'https:' && !window.claude && (PWA_EVT || isIOS());
+  b.hidden = !can;
+  b.onclick = async () => {
+    if(PWA_EVT){ PWA_EVT.prompt(); try{ await PWA_EVT.userChoice; }catch(e){} PWA_EVT = null; pwaButton(); return; }
+    sheet('安裝到主畫面', `<p>在 iPhone 或 iPad：</p><ol class="steps"><li>用 Safari 開啟這個網頁</li><li>按下方的「分享」按鈕</li><li>選擇「加入主畫面」</li></ol><p class="hint">安裝後可以像 app 一樣全螢幕遊玩，冇網絡時亦可以繼續（全球排行榜及雲端存檔除外）。</p><button class="btn main" id="pi-ok"><b>知道了</b></button>`);
+    $('pi-ok').onclick = closeMenu; };
+}
+
+/* ---------- 雲端存檔介面 ---------- */
+const fmtT = t => { const d = new Date(t); return isNaN(d) ? '—' : `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const slotSum = v => v && v.S && !v.S.done ? `${esc(v.S.label || `${v.S.first}・${v.S.last}`)}（${v.S.age} 歲・${seasonLabel(v.S.year)}）` : '空置';
+function openCloud(msg){
+  if(!lbOn()){ sheet('雲端存檔', '<p>雲端存檔只在正式網站提供。</p><button class="btn main" id="cl-x"><b>關閉</b></button>'); $('cl-x').onclick = closeMenu; return; }
+  const cfg = syncCfg(), m = msg ? `<div class="mk-msg ${msg.ok?'ok':''}">${esc(msg.t)}</div>` : '';
+  if(!cfg){
+    sheet('雲端存檔', `${m}<p>把三個存檔位同步到雲端，在另一部電腦或手機輸入同一個<b>同步碼</b>，便可以繼續同一段生涯。不需要登記帳號或電郵。</p>
+      <div class="lf-b"><button class="btn main" id="cl-new"><b>建立同步碼</b></button></div>
+      <div class="setrow"><b>已經有同步碼？</b><div class="lb-up"><input class="ren-in" id="cl-code" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-X" autocomplete="off" autocapitalize="characters"><button class="btn" id="cl-use"><b>連接</b></button></div></div>
+      <p class="hint">同步碼等同密碼：任何人取得同步碼，都可以讀取或覆蓋你的存檔，請不要公開。</p><button class="btn" id="cl-x"><b>關閉</b></button>`);
+    $('cl-x').onclick = closeMenu;
+    $('cl-new').onclick = async () => { const code = newSyncCode(); syncSave({ code, created:Date.now() }); try{ await cloudPush(); openCloud({ ok:true, t:'已建立同步碼並上載存檔。請把同步碼抄下或複製到安全的地方。' }); } catch(e){ openCloud({ ok:false, t:'上載失敗，請檢查網絡後按「立即上載」。' }); } };
+    $('cl-use').onclick = async () => { const code = normCode($('cl-code').value); if(code.replace(/-/g,'').length < 24){ openCloud({ ok:false, t:'同步碼不完整。' }); return; }
+      try{ const r = await cloudPull(code); if(!r){ openCloud({ ok:false, t:'找不到這個同步碼的存檔，請檢查是否輸入正確。' }); return; } syncSave({ code, created:Date.now() }); cloudRestore(r); }
+      catch(e){ openCloud({ ok:false, t:'連接失敗，請檢查網絡後再試。' }); } };
+    return;
+  }
+  sheet('雲端存檔', `${m}<div class="note"><b>同步碼</b><div class="sync-code" id="cl-show">●●●●●-●●●●●-●●●●●-●●●●●-●●●●●-●</div>
+      <div class="lf-b"><button class="btn sm" id="cl-reveal"><b>顯示</b></button><button class="btn sm" id="cl-copy"><b>複製</b></button></div></div>
+    <p class="hint">開啟同步後，每次存檔約 20 秒內會自動上載。上次上載：${cfg.last ? fmtT(cfg.last) : '未有'}</p>
+    <div class="lf-b"><button class="btn main" id="cl-push"><b>立即上載</b></button><button class="btn" id="cl-pull"><b>從雲端下載</b></button></div>
+    <button class="btn warn" id="cl-off"><b>在這部裝置停止同步</b></button><button class="btn" id="cl-x"><b>關閉</b></button>`);
+  $('cl-x').onclick = closeMenu;
+  $('cl-reveal').onclick = () => { $('cl-show').textContent = cfg.code; };
+  $('cl-copy').onclick = () => { const b = $('cl-copy'); (navigator.clipboard ? navigator.clipboard.writeText(cfg.code) : Promise.reject()).then(() => { b.innerHTML = '<b>已複製 ✓</b>'; }, () => { $('cl-show').textContent = cfg.code; b.innerHTML = '<b>請手動複製</b>'; }); };
+  $('cl-push').onclick = async () => { try{ await cloudPush(); openCloud({ ok:true, t:'已上載。' }); } catch(e){ openCloud({ ok:false, t:'上載失敗，請檢查網絡後再試。' }); } };
+  $('cl-pull').onclick = async () => { try{ const r = await cloudPull(); if(!r){ openCloud({ ok:false, t:'雲端暫時沒有存檔。' }); return; } cloudRestore(r); } catch(e){ openCloud({ ok:false, t:'下載失敗，請檢查網絡後再試。' }); } };
+  $('cl-off').onclick = () => { const b = $('cl-off'); if(!b.dataset.sure){ b.dataset.sure = 1; b.innerHTML = '<b>確定？雲端存檔不會被刪除，只是這部裝置不再同步</b>'; return; } syncSave(null); openCloud({ ok:true, t:'這部裝置已停止同步。' }); };
+}
+/* 下載：逐格比較，確認後以雲端覆蓋本機 */
+function cloudRestore(r){
+  const loc = Array.from({ length:NSLOT }, (_,i) => store.get(i)), rem = r.p.slots || [];
+  sheet('從雲端下載', `<p>雲端存檔上載於 ${fmtT(r.at)}（遊戲版本 ${esc(r.p.ver||'')}）。</p>
+    <div class="tablewrap"><table class="hist"><thead><tr><th></th><th>這部裝置</th><th>雲端</th></tr></thead><tbody>${Array.from({ length:NSLOT }, (_,i) => `<tr><td>存檔 ${i+1}</td><td>${slotSum(loc[i])}</td><td>${slotSum(rem[i])}</td></tr>`).join('')}</tbody></table></div>
+    <p class="hint">下載會以雲端的三個存檔位覆蓋這部裝置的存檔；舊版本存檔會自動轉換。</p>
+    <div class="lf-b"><button class="btn main" id="cr-go"><b>以雲端覆蓋這部裝置</b></button><button class="btn" id="cr-no"><b>取消</b></button></div>`);
+  $('cr-no').onclick = () => openCloud();
+  $('cr-go').onclick = () => { const b = $('cr-go'); if(!b.dataset.sure){ b.dataset.sure = 1; b.innerHTML = '<b>確定覆蓋？</b>'; return; }
+    rem.forEach((sv, i) => { if(sv && sv.S){ if(migrateS(sv.S).ok) store.set(sv, i); } else store.clear(i); });
+    try{ const g = JSON.parse(localStorage.getItem('g2p-ach')||'{}'); Object.keys(r.p.ach||{}).forEach(k => g[k] = 1); localStorage.setItem('g2p-ach', JSON.stringify(g)); }catch(e){}
+    const c = syncCfg(); if(c){ c.last = Date.now(); syncSave(c); }
+    START_MSG = { ok:true, t:'已從雲端下載存檔。' }; closeMenu(); renderStart(); show('start'); };
 }

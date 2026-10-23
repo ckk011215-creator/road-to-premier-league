@@ -3,9 +3,23 @@
    落敗即出局，之後的盃賽日程自動刪除。 */
 const CUPS = {
   fa: { n:'FA Cup', rounds:['第一圈','第二圈','第三圈','第四圈','第五圈','八強','四強','決賽'],
-        wk:[[1,12],[1,16],[2,1],[2,5],[2,9],[2,12],[2,15],[2,19]], entry:lg => ({ PL:2, CH:2, L1:0, L2:0, NL:0 })[lg], wembley:6 },
+        wk:[[1,12],[1,16],[2,1],[2,5],[2,9],[2,12],[2,15],[2,19]], entry:lg => ({ PL:2, CH:2, L1:0, L2:0, NL:0 })[lg], wembley:6, ven:'溫布萊',
+        lgs:r => r<=1 ? ['L1','L2','NL'] : ['PL','CH','L1','L2','NL'], win:['PL','CH','L1'] },
   lc: { n:'聯賽盃', rounds:['第一圈','第二圈','第三圈','第四圈','八強','四強','決賽'],
-        wk:[[1,2],[1,5],[1,9],[1,13],[1,18],[2,6],[2,10]], entry:lg => ({ PL:1, CH:0, L1:0, L2:0 })[lg], wembley:6 }
+        wk:[[1,2],[1,5],[1,9],[1,13],[1,18],[2,6],[2,10]], entry:lg => ({ PL:1, CH:0, L1:0, L2:0 })[lg], wembley:6, ven:'溫布萊',
+        lgs:() => ['PL','CH','L1','L2'], win:['PL','CH'] },
+  es: { n:'國王盃', rounds:['第一圈','第二圈','三十二強','十六強','八強','四強','決賽'],
+        wk:[[1,8],[1,12],[2,1],[2,4],[2,8],[2,12],[2,18]], entry:lg => ({ ES:0 })[lg], wembley:6, ven:'中立球場',
+        lgs:() => ['ES','ES2'], win:['ES'] },
+  it: { n:'意大利盃', rounds:['三十二強','十六強','八強','四強','決賽'],
+        wk:[[1,10],[2,2],[2,6],[2,12],[2,18]], entry:lg => ({ IT:0 })[lg], wembley:4, ven:'羅馬奧林匹克球場',
+        lgs:() => ['IT','IT2'], win:['IT'] },
+  de: { n:'德國盃', rounds:['第一圈','第二圈','十六強','八強','四強','決賽'],
+        wk:[[1,3],[1,10],[2,1],[2,6],[2,12],[2,18]], entry:lg => ({ DE:0 })[lg], wembley:5, ven:'柏林奧林匹克球場',
+        lgs:() => ['DE','DE2'], win:['DE'] },
+  fr: { n:'法國盃', rounds:['六十四強','三十二強','十六強','八強','四強','決賽'],
+        wk:[[1,14],[2,1],[2,4],[2,8],[2,12],[2,18]], entry:lg => ({ FR:0 })[lg], wembley:5, ven:'法蘭西球場',
+        lgs:() => ['FR','FR2'], win:['FR'] }
 };
 /* 季前：按所屬球會的聯賽決定參賽資格並抽第一個對手 */
 function cupInit(){
@@ -17,7 +31,7 @@ function cupInit(){
 /* 抽籤：早圈多數是低級別球會，越後越強 */
 function cupDraw(k, r){
   const cu = CUPS[k], f = r/(cu.rounds.length-1), me = curClub();
-  const lgs = k==='fa' ? (r<=1 ? ['L1','L2','NL'] : ['PL','CH','L1','L2','NL']) : ['PL','CH','L1','L2'];
+  const lgs = cu.lgs(r);
   const pool = Object.values(S.W.clubs).filter(c => c.id!==me && lgs.includes(c.lg));
   const o = wpick(pool, c => Math.pow(Math.max(1, c.str-30), 1 + f*4)) || pick(pool);
   return o.id;
@@ -39,7 +53,7 @@ function cupRun(sl, next){
   const c = club(curClub()), o = club(st.opp), se = S.season || {}, lg = LG[c.lg];
   if(curClub()!==S.cup.club){ UI.card('', cupRoundName(k, sl.r), `你本季已代表${cName(S.cup.club)}參加${cu.n}，按規例不能再為新球會上陣。`); cupOut(k); next(); return; }
   const final = sl.r===cu.rounds.length-1, wem = sl.r>=cu.wembley, home = !wem && chance(50);
-  const tag = `${cupRoundName(k, sl.r)}${wem ? '（溫布萊）' : home ? '（主場）' : '（作客）'}`;
+  const tag = `${cupRoundName(k, sl.r)}${wem ? `（${cu.ven}）` : home ? '（主場）' : '（作客）'}`;
   /* 角色：聯賽盃早圈會讓後備及年輕球員上陣 */
   const early = k==='lc' && sl.r<=2 && c.lg==='PL';
   let n, sub = false, plays = true;
@@ -49,13 +63,13 @@ function cupRun(sl, next){
   else if(se.r===1){ n = 2; }
   else if(se.r===2){ n = early || sl.r<=3 ? 2 : 1; sub = !early && sl.r>3; }
   else { plays = early || chance(25); n = 2; }
-  if(final) UI.card('event', `${cu.n}決賽`, `溫布萊球場，九萬名球迷。${c.n}對${o.n}。你在球員通道裏聽到看台的歌聲，雙腿有點發軟。`);
+  if(final) UI.card('event', `${cu.n}決賽`, `${cu.ven==='溫布萊' ? '溫布萊球場，九萬名球迷' : `${cu.ven}，全場座無虛席`}。${c.n}對${o.n}。你在球員通道裏聽到看台的歌聲，雙腿有點發軟。`);
   const after = r => {
     const done = win => {
       st.log.push({ r:sl.r, opp:o.id, gf:r.gf, ga:r.ga, win });
       if(win){
-        if(final){ st.won = true; addHonour(`${cu.n === 'FA Cup' ? 'FA Cup' : '聯賽盃'}冠軍`, { club:c.id, role: plays ? (se.r ?? 2) : 3 }); logLine(`${S.year+1} 年${cu.n}冠軍（${c.n}）`);
-          const t = fx({ fans:8, love:4, conf:4 }); UI.card('gold', `${cu.n}冠軍`, `${c.n}捧起${cu.n}！${plays?'你在溫布萊高舉獎盃，這一刻你會記住一輩子。':'你雖然沒有上陣，仍然是冠軍隊伍的一分子。'}${t?`<div class="fx">${t}</div>`:''}`); }
+        if(final){ st.won = true; addHonour(`${cu.n}冠軍`, { club:c.id, role: plays ? (se.r ?? 2) : 3 }); logLine(`${S.year+1} 年${cu.n}冠軍（${c.n}）`);
+          const t = fx({ fans:8, love:4, conf:4 }); UI.card('gold', `${cu.n}冠軍`, `${c.n}捧起${cu.n}！${plays?`你在${cu.ven==='溫布萊'?'溫布萊':'看台前'}高舉獎盃，這一刻你會記住一輩子。`:'你雖然沒有上陣，仍然是冠軍隊伍的一分子。'}${t?`<div class="fx">${t}</div>`:''}`); }
         else { st.r = sl.r + 1; st.opp = cupDraw(k, st.r); const no = club(st.opp);
           UI.card('good', `${cu.n}晉級`, `${c.n}晉身${cu.rounds[st.r]}。抽籤結果：對<b>${no.n}</b>（${LG[no.lg].short}）。`); }
       } else { UI.card('bad', `${cu.n}出局`, `${c.n}在${cu.rounds[sl.r]}被${o.n}淘汰。`); cupOut(k); }
@@ -81,6 +95,6 @@ function cupWinners(){
   const out = {}; if(!S.cup || S.cup.y!==S.year) return out;
   Object.entries(CUPS).forEach(([k, cu]) => { const st = S.cup[k];
     if(st && st.won) out[k] = S.cup.club;
-    else { const lgs = k==='fa' ? ['PL','CH','L1'] : ['PL','CH']; out[k] = (wpick(Object.values(S.W.clubs).filter(x => lgs.includes(x.lg) && x.id!==S.cup.club), x => Math.pow(Math.max(1,x.str-50), 2.6)) || {}).id; } });
+    else { const lgs = cu.win; out[k] = (wpick(Object.values(S.W.clubs).filter(x => lgs.includes(x.lg) && x.id!==S.cup.club), x => Math.pow(Math.max(1,x.str-50), 2.6)) || {}).id; } });
   return out;
 }

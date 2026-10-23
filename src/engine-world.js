@@ -22,8 +22,8 @@ function clubNews(next){
   next();
 }
 function takeover(c, next){
-  const who = pick(OWNERS), goal = c.lg==='PL' ? '爭奪英超冠軍' : '三年內升上英超';
-  c.owner = who; c.boost = { n:3, v:c.lg==='PL'?1.2:2 }; c.str = r1(c.str + ri(2,4));
+  const who = pick(OWNERS), goal = c.lg==='PL' ? '爭奪英超冠軍' : isAbroadLg(c.lg) ? `爭奪${LG[c.lg].n}冠軍` : '三年內升上英超';
+  c.owner = who; c.boost = { n:3, v:LG[c.lg].lvl===1?1.2:2 }; c.str = r1(c.str + ri(2,4));
   logLine(`${S.age} 歲：${who}收購${c.n}`);
   UI.card('event', '球會易主', `${who}完成收購${c.n}。新老闆在記者會上承諾大灑金錢，目標是${goal}。<br>更衣室內議論紛紛：新老闆會帶來新球星，還是新機會？`);
   UI.choose('你的反應？', [
@@ -166,7 +166,7 @@ function interestList(){
   if(!S.pro) return [];
   const o = ovr(), lvNow = LG[club(curClub()).lg].lvl, hs = s => { let h = 2166136261; for(const ch of s){ h ^= ch.charCodeAt(0); h = Math.imul(h,16777619); } return (h>>>0)%1000/1000; };
   const ss = S.ss && S.ss.app ? S.ss.rt/S.ss.app : S.pro.lastRt || 6.6, form = (ss-6.6)*12 + (S.m.fans-40)*0.2 + (S.pro.listed===S.year?12:0) + (S.agent?6:0);
-  return Object.values(S.W.clubs).filter(x => x.id!==S.pro.club && x.id!==curClub() && x.lg!=='NON' && LG[x.lg].lvl >= lvNow-2 && o >= x.str-4 && x.str >= Math.min(o, club(curClub()).str) - (S.pro.listed===S.year ? 8 : 3))
+  return Object.values(S.W.clubs).filter(x => x.id!==S.pro.club && x.id!==curClub() && x.lg!=='NON' && !LG[x.lg].pool && (isEngClub(x) || (S.age>=18 && !S.pro.semi)) && LG[x.lg].lvl >= lvNow-2 && o >= x.str-4 && x.str >= Math.min(o, club(curClub()).str) - (S.pro.listed===S.year ? 8 : 3))
     .map(x => ({ x, sc: -Math.abs(x.str - o - 1) + hs(`${S.year}${x.id}`)*6 }))
     .sort((a,b) => b.sc-a.sc).slice(0,5)
     .map(({x}, i) => { const lv = form - i*6 + hs(`${S.year}${S.term}${x.id}`)*20; return { c:x, lv: lv>=18?2 : lv>=4?1 : 0 }; });

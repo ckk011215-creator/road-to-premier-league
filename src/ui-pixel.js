@@ -32,7 +32,29 @@ function shade(hex, f){ const n = parseInt(hex.slice(1),16); const r = Math.roun
 /* 球員外觀：由種子決定 */
 function lookOf(seed){ const h = hashN(seed); return { s:SKINS[h%SKINS.length], h:HAIRS[(h>>>5)%HAIRS.length] }; }
 function kitOf(id){ return KITS[hashN(id||'x')%KITS.length]; }
-function palFor(kit, look){ const j = kit || '#f2b705'; return { ...PX.base, j, J:shade(j,0.7), s:look?look.s:SKINS[1], h:look?look.h:HAIRS[0], g:j, a:(look&&look.hb)||'#f4f4ee', t:'#2b3a55', b:(look&&look.bt)||PX.base.b }; }
+/* ---------- 球衣設計：主色、副色、圖案（虛構，按球會編號固定） ---------- */
+const KIT_PATS = ['plain','stripes','hoops','halves','sash','sleeves','plain','stripes','hoops','plain'];
+const KIT_OV = {
+  plain:{}, stripes:{ 6:'__q_q_q_q_', 7:'__q_q_q_q_', 8:'__q_q_q_q_', 9:'__q_q_q_q_' }, hoops:{ 7:'_qqqqqqqq_', 9:'_qqqqqqqq_' },
+  halves:{ 6:'_____qqqq_', 7:'_____qqqq_', 8:'_____qqqq_', 9:'_____qqqq_' }, sash:{ 6:'__q_______', 7:'___qq_____', 8:'_____qq___', 9:'_______q__' },
+  sleeves:{ 6:'_q______q_', 7:'_q______q_', 8:'_q______q_' } };
+const KIT_PAT_N = { plain:'單色', stripes:'直間', hoops:'橫間', halves:'左右兩色', sash:'斜帶', sleeves:'雙色袖' };
+function kitDesign(id){
+  const h = hashN((id||'x') + '|kit'), a = kitOf(id); let b = KITS[(h>>>4) % KITS.length];
+  if(b===a) b = a==='#f4f4ee' ? '#1b1f2a' : '#f4f4ee';
+  return { a, b, pat:KIT_PATS[(h>>>9) % KIT_PATS.length] };
+}
+const lum = hx => { const n = parseInt(hx.slice(1),16); return (0.299*((n>>16)&255) + 0.587*((n>>8)&255) + 0.114*(n&255))/255; };
+/* ---------- 虛構隊徽（SVG 盾牌） ---------- */
+function crestSVG(id, size=18){
+  if(!id) return '';
+  const c = S && S.W && S.W.clubs[id], name = c ? c.n : String(id), d = kitDesign(id), u = `cr${hashN(id+size)}`;
+  const pat = { stripes:`<rect x="7" width="3" height="30" fill="${d.b}"/><rect x="14" width="3" height="30" fill="${d.b}"/>`, hoops:`<rect y="9" width="24" height="4" fill="${d.b}"/><rect y="17" width="24" height="4" fill="${d.b}"/>`,
+    halves:`<rect x="12" width="12" height="30" fill="${d.b}"/>`, sash:`<polygon points="0,4 6,0 24,22 24,30" fill="${d.b}"/>`, sleeves:`<polygon points="0,0 24,0 24,6 12,13 0,6" fill="${d.b}"/>`, plain:`<polygon points="2,20 12,13 22,20 22,24 12,17 2,24" fill="${d.b}"/>` }[d.pat] || '';
+  const ink = lum(d.a) > 0.6 ? '#1b1f2a' : '#ffffff';
+  return `<svg class="crest" width="${size}" height="${Math.round(size*28/24)}" viewBox="0 0 24 28" aria-hidden="true"><defs><clipPath id="${u}"><path d="M2 2h20v12c0 7-5 11-10 13C7 25 2 21 2 14z"/></clipPath></defs><g clip-path="url(#${u})"><rect width="24" height="30" fill="${d.a}"/>${pat}</g><path d="M2 2h20v12c0 7-5 11-10 13C7 25 2 21 2 14z" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1.4"/><text x="12" y="15.5" text-anchor="middle" font-size="10" font-weight="900" fill="${ink}" stroke="${ink==='#ffffff'?'rgba(0,0,0,.35)':'rgba(255,255,255,.4)'}" stroke-width=".4" font-family="Noto Sans HK, sans-serif">${esc(name.slice(0,1))}</text></svg>`;
+}
+function palFor(kit, look, sec){ const j = kit || '#f2b705'; return { ...PX.base, j, J:shade(j,0.7), q:sec || j, s:look?look.s:SKINS[1], h:look?look.h:HAIRS[0], g:j, a:(look&&look.hb)||'#f4f4ee', t:'#2b3a55', b:(look&&look.bt)||PX.base.b }; }
 
 /* ---------- 自訂外貌 ---------- */
 const SKIN_OPTS = ['#f6d7bd','#f1c9a5','#e0ac80','#c68863','#a86f4c','#8d5a3b','#5e3a24','#3f2718'];
@@ -55,8 +77,8 @@ const HAIR_STYLES = {
 const FACIAL = { none:{ n:'沒有', o:{} }, mous:{ n:'鬍子', o:{ 4:'____hh____' } }, goatee:{ n:'山羊鬚', o:{ 5:'____hh____' } }, beard:{ n:'絡腮鬍', o:{ 4:'__h____h__', 5:'___hhhh___' } } };
 const TATTOO = { none:{ n:'沒有', o:{} }, left:{ n:'左臂', o:{ 7:'t_________', 8:'t_________' } }, both:{ n:'雙臂', o:{ 7:'t________t', 8:'t________t' } } };
 function overlay(rows, o){ for(const r in o){ const s = o[r]; rows[r] = rows[r].split('').map((ch, i) => s[i]==='_' || s[i]===undefined ? ch : s[i]).join(''); } return rows; }
-function lookRows(base, L){
-  let rows = PX.sprites[base].slice(); const hs = (HAIR_STYLES[L.st] || HAIR_STYLES.short).r;
+function lookRows(base, L, pat){
+  let rows = overlay(PX.sprites[base].slice(), KIT_OV[pat] || {}); const hs = (HAIR_STYLES[L.st] || HAIR_STYLES.short).r;
   for(let i=0;i<6;i++) rows[i] = hs[i];
   rows = overlay(rows, (FACIAL[L.f]||FACIAL.none).o);
   if(L.hb) rows = overlay(rows, { 2:'__aaaaaa__' });
@@ -64,13 +86,15 @@ function lookRows(base, L){
   return rows;
 }
 const lookKey = L => [L.st||'short', L.f||'none', L.hb||'', L.tat||'none'].join('-');
-/* 註冊這個外貌的公仔，回傳 sprite 名稱 */
-function lookSprite(base, L){ const nm = `${base}:${lookKey(L)}`; if(!PX.sprites[nm]) PX.sprites[nm] = lookRows(base, L); return nm; }
+/* 註冊這個外貌（及球衣圖案）的公仔，回傳 sprite 名稱 */
+function lookSprite(base, L, pat){ const nm = `${base}:${lookKey(L)}:${pat||'plain'}`; if(!PX.sprites[nm]) PX.sprites[nm] = lookRows(base, L, pat); return nm; }
+/* 一般球員（隊友、對手）的球衣圖案 */
+function kitSprite(base, pat){ if(!pat || pat==='plain') return PX.sprites[base]; const nm = `${base}::${pat}`; if(!PX.sprites[nm]) PX.sprites[nm] = overlay(PX.sprites[base].slice(), KIT_OV[pat]); return PX.sprites[nm]; }
 function defaultLook(seed){ return { ...lookOf(seed), st:'short', f:'none', hb:'', tat:'none', bt:'#222' }; }
 const myLook = () => (S && S.look) || (S ? defaultLook(S.seed) : defaultLook('hero'));
 function randLook(){ const r = a => a[Math.floor(Math.random()*a.length)];
   return { s:r(SKIN_OPTS), h:r(HAIR_OPTS.slice(0,8)), st:r(Object.keys(HAIR_STYLES)), f:Math.random()<0.6?'none':r(Object.keys(FACIAL)), hb:Math.random()<0.8?'':r(BAND_OPTS.slice(1))[0], tat:Math.random()<0.75?'none':r(['left','both']), bt:r(BOOT_OPTS)[0] }; }
-function lookURL(L, kit, sc=3, kick=false){ return iconURL(lookSprite(kick?'kick':'player', L), palFor(kit, L), sc); }
+function lookURL(L, kit, sc=3, kick=false, kd){ return iconURL(lookSprite(kick?'kick':'player', L, kd && kd.pat), palFor(kit, L, kd && kd.b), sc); }
 function drawSprite(g, rows, pal, x, y, sc=1, flip=false){
   rows.forEach((row, r) => { for(let c=0; c<row.length; c++){ const ch = row[flip ? row.length-1-c : c]; if(ch==='.') continue; const col = pal[ch]; if(!col) continue; g.fillStyle = col; g.fillRect(x + c*sc, y + r*sc, sc, sc); } });
 }
@@ -98,10 +122,11 @@ function iconFor(tone, title){
   return null;
 }
 const GK_KIT = '#7c5cff';   /* 門將球衣 */
-function playerURL(sc=3, kick=false){ if(!S) return iconURL('player', palFor('#f2b705'), sc); return lookURL(myLook(), S.pos==='GK' ? GK_KIT : kitOf(S.stage==='PRO'?curClub():S.stage==='GR'?S.gr:S.aca&&S.aca.club), sc, kick); }
+const myClubKey = () => S.stage==='PRO' ? curClub() : S.stage==='GR' ? S.gr : S.aca && S.aca.club;
+function playerURL(sc=3, kick=false){ if(!S) return iconURL('player', palFor('#f2b705'), sc); const kd = S.pos==='GK' ? null : kitDesign(myClubKey()); return lookURL(myLook(), S.pos==='GK' ? GK_KIT : kd.a, sc, kick, kd); }
 
 /* ---------- 關鍵時刻像素球場 ---------- */
-const PITCH_W = 192, PITCH_H = 104;
+const PITCH_W = 192, PITCH_H = 104, CROWD = 14;
 function sceneLayout(scene, seed){
   const h = hashN(seed), jx = (h%24)-12;
   /* ATT／MID：攻上方龍門；DEF：守下方龍門 */
@@ -119,30 +144,47 @@ function drawPxPitch(g, L){
   else { box(PITCH_H-26, false); g.fillRect(0,PITCH_H-1,PITCH_W,1); g.fillStyle='#f4f4ee'; g.fillRect(78,PITCH_H-3,36,3); g.fillStyle='#c9d3c4'; for(let x=79;x<113;x+=3) g.fillRect(x,PITCH_H-3,1,3); }
   if(L.goal==='top'){ g.fillStyle='#e8f0e0'; g.fillRect(0, PITCH_H-1, PITCH_W, 1); g.beginPath(); g.arc(96, PITCH_H+6, 18, Math.PI, 2*Math.PI); g.strokeStyle='#e8f0e0'; g.lineWidth=1; g.stroke(); }
 }
+/* 看台與觀眾：入球時一起跳起 */
+function drawCrowd(g, st, t){
+  g.fillStyle = '#1d2433'; g.fillRect(0, 0, PITCH_W, CROWD); g.fillStyle = '#2b3447'; g.fillRect(0, CROWD-3, PITCH_W, 3);
+  const cel = st.cel && t - st.cel < 1800, cols = [st.kd ? st.kd.a : '#d8433a', st.kd ? st.kd.b : '#f4f4ee', '#c9a27e', '#e0ac80', '#8d5a3b'];
+  for(let row=0; row<3; row++) for(let x=1+row%2*2; x<PITCH_W; x+=4){
+    const i = x*7 + row*131 + st.h%97, jump = cel ? ((Math.floor(t/110) + i) % 2) * 2 : (Math.floor(t/600 + i) % 7 === 0 ? 1 : 0);
+    g.fillStyle = cols[i % (row===2 ? 5 : 3)]; g.fillRect(x, 1 + row*3 - jump, 2, 2); }
+}
 function drawScene(cv, st, t){
   const g = cv.getContext('2d'), L = st.L; g.imageSmoothingEnabled = false;
+  drawCrowd(g, st, t); g.save(); g.translate(0, CROWD);
   drawPxPitch(g, L);
   const bob = n => (Math.floor(t/280 + n) % 2);
-  const myPal = palFor(st.kit, st.look), oppPal = palFor(st.oppKit, { s:SKINS[(st.h>>>3)%5], h:HAIRS[(st.h>>>7)%6] }), gkPal = palFor('#f08a24', { s:SKINS[(st.h>>>9)%5], h:HAIRS[(st.h>>>11)%6] });
+  const myPal = palFor(st.kit, st.look, st.kd && st.kd.b), oppPal = palFor(st.oppKit, { s:SKINS[(st.h>>>3)%5], h:HAIRS[(st.h>>>7)%6] }, st.od && st.od.b), gkPal = palFor('#f08a24', { s:SKINS[(st.h>>>9)%5], h:HAIRS[(st.h>>>11)%6] });
   const P = (rows, pal, [x,y], n, flip) => drawSprite(g, rows, pal, Math.round(x-5), Math.round(y-14 + bob(n)), 1, flip);
   if(L.gk) P(PX.sprites.player, gkPal, L.gk, 3);
-  L.opp.forEach((p,i) => P(PX.sprites.player, oppPal, p, i, i%2===0));
-  const matePal = palFor(st.kit, { s:SKINS[(st.h>>>13)%5], h:HAIRS[(st.h>>>15)%6] });
-  L.mate.forEach((p,i) => P(PX.sprites.player, matePal, p, i+2));
-  P(PX.sprites[lookSprite(st.kicked ? 'kick' : 'player', st.look)], L.keeper ? palFor(GK_KIT, st.look) : myPal, L.me, 1);
+  L.opp.forEach((p,i) => P(kitSprite('player', st.od && st.od.pat), oppPal, p, i, i%2===0));
+  const matePal = palFor(st.kit, { s:SKINS[(st.h>>>13)%5], h:HAIRS[(st.h>>>15)%6] }, st.kd && st.kd.b);
+  L.mate.forEach((p,i) => P(kitSprite('player', st.kd && st.kd.pat), matePal, p, i+2));
+  /* 你：入球後跳起慶祝；門將撲救時橫移 */
+  const cel = st.cel && t - st.cel < 1600, hop = cel ? -Math.round(Math.abs(Math.sin((t - st.cel)/110))*4) : 0, mo = st.meOff || [0,0];
+  P(PX.sprites[lookSprite(st.kicked ? 'kick' : 'player', st.look, L.keeper ? null : st.kd && st.kd.pat)], L.keeper ? palFor(GK_KIT, st.look) : myPal, [L.me[0] + mo[0], L.me[1] + mo[1] + hop], 1);
   const b = st.ballPos || L.ball;
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(Math.round(b[0])-2, Math.round(b[1])+3, 5, 1);
   drawSprite(g, PX.sprites.ball, PX.base, Math.round(b[0])-4, Math.round(b[1] - (st.lift||0))-4, 1);
+  g.restore();
+  /* 彩紙 */
+  if(cel){ const k = (t - st.cel)/1600, cc = ['#f2b705','#f4f4ee', st.kd ? st.kd.a : '#d8433a', '#63B583'];
+    for(let i=0;i<40;i++){ const x = (i*53 + st.h) % PITCH_W, y = ((i*37) % 40) + k*(PITCH_H+CROWD), sw = Math.round(Math.sin(t/90 + i)*2);
+      g.fillStyle = cc[i%4]; g.fillRect(x + sw, Math.round(y) % (PITCH_H+CROWD), 2, 1); } }
 }
-function mountScene(card, scene, force){
+function mountScene(card, scene, force, oc){
   if(SET.anim===false && !force) return;
-  const cv = document.createElement('canvas'); cv.width = PITCH_W; cv.height = PITCH_H; cv.className = 'pxpitch'; cv.setAttribute('aria-hidden','true');
+  const cv = document.createElement('canvas'); cv.width = PITCH_W; cv.height = PITCH_H + CROWD; cv.className = 'pxpitch'; cv.setAttribute('aria-hidden','true');
   const wrap = document.createElement('div'); wrap.className = 'pxwrap'; wrap.appendChild(cv);
   const fx = document.createElement('div'); fx.className = 'pxfx'; wrap.appendChild(fx);
   card.querySelector('h4').after(wrap);
   const seed = (S?S.seed:'') + S.age + S.term + Math.random();
-  const st = { L:sceneLayout(scene, seed), kit:kitOf(S.stage==='PRO'?curClub():S.stage==='GR'?S.gr:S.aca&&S.aca.club), oppKit:KITS[hashN(seed)%KITS.length], look:myLook(), h:hashN(seed) };
-  if(st.oppKit===st.kit) st.oppKit = '#f4f4ee';
+  const kd = kitDesign(myClubKey()), od = kitDesign(oc || ('o' + hashN(seed)));
+  const st = { L:sceneLayout(scene, seed), kit:kd.a, kd, od, oppKit:od.a, look:myLook(), h:hashN(seed) };
+  if(st.oppKit===st.kit){ st.oppKit = st.kit==='#f4f4ee' ? '#1b1f2a' : '#f4f4ee'; od.b = st.kit; }
   card._px = { cv, st, fx, running:true };
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const loop = ts => { if(!card.isConnected || !card._px.running){ return; } drawScene(cv, st, calm ? 0 : ts); requestAnimationFrame(loop); };
@@ -161,9 +203,12 @@ function playScene(card, r){
   else { to = r.ok ? L.mate[0].slice() : L.opp[0].slice(); label = r.ok ? 'NICE!' : 'TURNOVER'; }
   cls = r.ok ? 'ok' : 'ng';
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches, dur = calm ? 0 : 750, t0 = performance.now();
-  st.kicked = true;
+  st.kicked = true; if(typeof sfx==='function') sfx('kick');
+  const dive = r.k==='S' && L.keeper ? (to[0] - L.me[0]) * (r.ok ? 1 : 0.5) : 0;
   const step = now => { const k = dur ? Math.min(1, (now - t0)/dur) : 1, e = 1 - Math.pow(1-k, 2);
-    st.ballPos = [from[0] + (to[0]-from[0])*e, from[1] + (to[1]-from[1])*e]; st.lift = Math.sin(Math.PI*k)*lift;
-    if(k < 1) requestAnimationFrame(step); else { fx.textContent = label; fx.className = `pxfx show ${cls}`; setTimeout(() => { st.kicked = false; }, 400); } };
+    st.ballPos = [from[0] + (to[0]-from[0])*e, from[1] + (to[1]-from[1])*e]; st.lift = Math.sin(Math.PI*k)*lift; if(dive) st.meOff = [dive*Math.min(1, k*1.4), 0];
+    if(k < 1) requestAnimationFrame(step); else { fx.textContent = label; fx.className = `pxfx show ${cls}`; setTimeout(() => { st.kicked = false; }, 400);
+      if(r.ok && (r.k==='G' || r.k==='S')) st.cel = performance.now();
+      if(typeof sfx==='function') sfx(r.ok ? (r.k==='G' ? 'goal' : r.k==='S' ? 'save' : 'cheer') : 'miss'); } };
   requestAnimationFrame(step);
 }

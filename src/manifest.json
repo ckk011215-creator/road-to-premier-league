@@ -2,7 +2,11 @@
   "engine": [
     "data.js",
     "engine-core.js",
+    "data-abroad.js",
     "content.js",
+    "events-extra.js",
+    "events-pro.js",
+    "events-abroad.js",
     "engine-youth.js",
     "engine-pro.js",
     "engine-match.js",
@@ -13,10 +17,12 @@
     "engine-perks.js",
     "engine-story.js",
     "engine-squad.js",
-    "engine-cup.js"
+    "engine-cup.js",
+    "engine-abroad.js"
   ],
   "ui": [
     "leaderboard.js",
+    "ui-audio.js",
     "ui-pixel.js",
     "ui.js"
   ]

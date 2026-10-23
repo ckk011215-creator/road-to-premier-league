@@ -260,7 +260,8 @@ function grassrootsYearEnd(next){
   if(a>=15){ sixteenNoScholar(next); return; }
   const cands = nearAcademies(a>=10);
   const p0 = perf();
-  const invites = shuffle(cands.slice()).filter(c => { const thr = E(a+1)*CAT_F[c.cat]; const pr = clamp(S.m.scout*0.3 + (p0/thr - 0.96)*140 + (S.devc===c.id?18:0) + (S.flags.campSeen===c.id?10:0), 0, 45); return chance(pr); }).slice(0,3);
+  const invites = shuffle(cands.slice()).filter(c => { const thr = E(a+1)*CAT_F[c.cat]; const pr = clamp(S.m.scout*0.3 + (p0/thr - 0.96)*140 + (S.devc===c.id?18:0) + (S.flags.campSeen===c.id?10:0), 0, 45) * dif().aca; return chance(pr); }).slice(0,3);
+  if(invites.length && !chance(dif().acaY*100)) invites.length = 0;
   if(!invites.length){ UI.card('','沒有學院邀請', a<=8 ? '今年沒有學院球探聯絡你。你繼續參加星期日聯賽。':'又一年沒有學院聯絡你。星期日聯賽繼續，球探或許就在場邊。'); next(); return; }
   trialMenu(invites, '學院試訓邀請', `今年夏天有 ${invites.length} 間學院邀請你試訓（為期六星期）：`, next);
 }
@@ -273,7 +274,7 @@ function runTrial(c, cb){
   const a = S.age + 1, thr = E(a)*CAT_F[c.cat];
   UI.card('', `${c.n}試訓`, `為期六星期的試訓。第一晚你見到二三十名同齡孩子，每人都是自己球隊中最出色的一個。`);
   moment({ tag:`${c.n}試訓`, opp:'試訓分組賽', lvl:thr, stake:2, youth:true }, () => {
-    const pr = perf()/thr, p = clamp(35 + (pr-1)*240 + (S.m.coach-50)*0.2, 3, 90);
+    const pr = perf()/thr, p = clamp(35 + (pr-1)*240 + (S.m.coach-50)*0.2 + dif().trial, 1, 90);
     if(chance(p)){
       UI.card('good','試訓成功', `${c.n}學院經理與你的父母商談了二十分鐘：他們希望與你簽訂${a<=10?'一':'兩'}年註冊。`);
       UI.choose(`加入${c.n}學院？`, [
@@ -303,8 +304,8 @@ function joinAcademy(c){
 /* 學院：保留或放棄 */
 function retainP(extraBias=0){
   const thr = E(S.age)*CAT_F[S.aca.cat], ratio = perf()/thr;
-  const z = (ratio-1)*18 + (S.m.coach-50)/18 - 0.2 + extraBias;
-  return { p: Math.round(100/(1+Math.exp(-z))), ratio };
+  const z = (ratio-1)*18 + (S.m.coach-50)/18 - 0.2 + extraBias + dif().ret;
+  return { p: Math.min(dif().retCap, Math.round(100/(1+Math.exp(-z)))), ratio };
 }
 function academyYearEnd(next){
   const a = S.age, c = club(S.aca.club);
@@ -344,8 +345,8 @@ function poachCheck(next){
     { t:`留在${cur.n}`, s:'教練印象↑', f:()=>{ fx({coach:5}); UI.card('','留下',`${cur.n}教練得知你拒絕了邀請，對你更有信心。`); next(); } } ]);
 }
 function scholarshipDecision(next){
-  const c = club(S.aca.club), { p } = retainP(-0.9);
-  if(chance(p)){
+  const c = club(S.aca.club), { p } = retainP(-0.9 + dif().sch);
+  if(chance(Math.min(p, dif().schCap))){
     UI.card('gold','獲得 Scholarship', `${c.n}與你簽訂兩年 Scholarship（全職學徒合約）。九月起，你將成為全職學徒：每日訓練，每星期一天上課。`);
     logLine(`16 歲獲${c.n} Scholarship`);
     S.stage = 'SCH'; next();
@@ -362,7 +363,7 @@ function sixteenNoScholar(next){
     UI.card('', 'Scholarship 試訓', `你的父母打了許多電話，以下球會願意給你試訓機會：<br>${list.map(c=>`・${c.n}（${catN(c.cat)}）`).join('<br>')}`);
     let i = 0; const tryNext = () => { const c = list[i++]; if(!c){ UI.card('bad','全部失敗','沒有球會願意給你 Scholarship。'); nonLeagueStart(next); return; }
       moment({ tag:`${c.n}試訓`, opp:'U18 試訓賽', lvl:E(16)*CAT_F[c.cat], stake:2, youth:true }, () => {
-        const pr = perf()/(E(16)*CAT_F[c.cat]*1.04); if(chance(clamp(15+(pr-1)*220,2,70))){ UI.card('gold','獲得 Scholarship',`${c.n}與你簽訂兩年 Scholarship。`); S.aca = { club:c.id, cat:c.cat, since:16 }; S.flags.far = isFar(c); S.stage='SCH'; S.m.coach=50; logLine(`16 歲獲${c.n} Scholarship`); next(); }
+        const pr = perf()/(E(16)*CAT_F[c.cat]*1.04); if(chance(Math.min(dif().schCap, clamp(15+(pr-1)*220+dif().sch*10,1,70)))){ UI.card('gold','獲得 Scholarship',`${c.n}與你簽訂兩年 Scholarship。`); S.aca = { club:c.id, cat:c.cat, since:16 }; S.flags.far = isFar(c); S.stage='SCH'; S.m.coach=50; logLine(`16 歲獲${c.n} Scholarship`); next(); }
         else { UI.card('bad','試訓失敗',`${c.n}認為你水平未達標準。`); tryNext(); } }); };
     tryNext(); } });
   opts.push({ t:'讀 college，同時踢非聯賽', s:'雲迪、明斯走過的路', f:()=>nonLeagueStart(next) });
@@ -382,19 +383,19 @@ function scholarYearEnd(next){
   const c = club(S.aca.club), a = S.age;
   const thr = E(17)*CAT_F[S.aca.cat], ratio = perf()/thr;
   if(a===16){
-    if(ratio >= 1.06 && chance(70)){ UI.card('gold','職業合約', `17 歲生日當天，${c.n}與你簽訂了第一份職業合約。`); logLine(`17 歲與${c.n}簽訂職業合約`); S.flags.earlyPro = 1; }
+    if(ratio >= 1.06 && chance(Math.min(70 + dif().pro, dif().proCap))){ UI.card('gold','職業合約', `17 歲生日當天，${c.n}與你簽訂了第一份職業合約。`); logLine(`17 歲與${c.n}簽訂職業合約`); S.flags.earlyPro = 1; }
     else UI.card('', '學徒第一年結束', `學院經理說：「明年是關鍵的一年。」`);
     next(); return;
   }
   if(a===17){
-    if(S.flags.earlyPro || chance(clamp(25+(ratio-1)*240+(S.m.coach-50)*0.4,3,90))){
+    if(S.flags.earlyPro || chance(Math.min(dif().proCap, clamp(25+(ratio-1)*240+(S.m.coach-50)*0.4+dif().pro,1,90)))){
       if(!S.flags.earlyPro){ UI.card('gold','職業合約', `${c.n}與你簽訂兩年職業合約。你終於成為職業球員。`); logLine(`18 歲與${c.n}簽訂職業合約`); }
       startPro(c.id, { yrs:2 }); next(); return;
     }
     UI.card('bad','未獲職業合約', `兩年學徒期結束，${c.n}不會與你簽訂職業合約。你在學院踢了這麼多年，最後一天的會面又是十分鐘。`);
     logLine(`18 歲未獲${c.n}職業合約`); fx({ conf:-10+(S.pers.grit-3)*3 }); S.flags.released = 1;
-    const offers = shuffle(Object.values(S.W.clubs).filter(x => ['L1','L2','NL'].includes(x.lg) && ovr() >= x.str-4)).slice(0,2);
-    const opts = offers.map(o => ({ t:`到${o.n}試訓`, s:LG[o.lg].n, f:()=>{ moment({ tag:`${o.n}試訓`, opp:'預備組', lvl:o.str-4, stake:2, youth:true }, () => { if(chance(clamp(30+(ovr()-o.str+2)*8,5,80))){ UI.card('good','試訓成功',`${o.n}與你簽訂一年合約。`); logLine(`18 歲加入${o.n}`); startPro(o.id,{yrs:1}); } else { UI.card('bad','試訓失敗',`${o.n}決定不簽下你。`); nonLeagueStart(()=>{}); } next(); }); } }));
+    const offers = shuffle(Object.values(S.W.clubs).filter(x => ['L1','L2','NL'].includes(x.lg) && ovr() >= x.str-4)).slice(0,2).filter(x => x.lg==='NL' || chance(dif().nl*100));
+    const opts = offers.map(o => ({ t:`到${o.n}試訓`, s:LG[o.lg].n, f:()=>{ moment({ tag:`${o.n}試訓`, opp:'預備組', lvl:o.str-4, stake:2, youth:true }, () => { if(chance(clamp(30+(ovr()-o.str+2)*8+dif().pro,1,80))){ UI.card('good','試訓成功',`${o.n}與你簽訂一年合約。`); logLine(`18 歲加入${o.n}`); startPro(o.id,{yrs:1}); } else { UI.card('bad','試訓失敗',`${o.n}決定不簽下你。`); nonLeagueStart(()=>{}); } next(); }); } }));
     opts.push({ t:'到非聯賽重新出發', s:'工作之餘踢半職業足球', f:()=>{ nonLeagueStart(next); } });
     opts.push({ t:'放棄足球', warn:true, s:'生涯結束', f:()=>endGame('18 歲未獲職業合約，決定離開足球。') });
     UI.choose('18 歲，下一步？', opts); return;

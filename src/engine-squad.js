@@ -3,17 +3,17 @@
    夏天有轉會市場，青訓球員補上空缺；球會實力一半由陣容決定。 */
 const SQ_POS = ['GK','GK','CB','CB','CB','CB','FB','FB','FB','DM','DM','CM','CM','AM','AM','W','W','W','ST','ST'];
 const XI_POS = ['GK','FB','CB','CB','FB','DM','CM','AM','W','W','ST'];
-const SQ_LGS = ['PL','CH','L1','L2','NL'];
+const SQ_LGS = ['PL','CH','L1','L2','NL','ES','IT','DE','FR'];
 const GOAL_W = { ST:5, W:3, AM:3, CM:1.4, DM:0.6, CB:0.5, FB:0.35, GK:0 };
 const hasSquad = c => c && SQ_LGS.includes(c.lg);
-function mkPlayer(pos, age, v, pot){ const W = S.W; W.pid = (W.pid||0) + 1;
-  return { id:W.pid, n:npcName(), p:pos, a:age, v:r1(v), t:r1(Math.max(v, pot)), g:0, ap:0, cg:0, ca:0 }; }
+function mkPlayer(pos, age, v, pot, c){ const W = S.W; W.pid = (W.pid||0) + 1;
+  return { id:W.pid, n:npcName(c ? (LG[c.lg].cty || 'EN') : null), p:pos, a:age, v:r1(v), t:r1(Math.max(v, pot)), g:0, ap:0, cg:0, ca:0 }; }
 function genSquad(c){
   const seen = {}, sq = SQ_POS.map(pos => { const k = seen[pos] = (seen[pos]||0) + 1;
     const first = k===1 || (pos==='CB' && k===2) || (pos==='FB' && k===2) || (pos==='W' && k===2);
-    if(!first && R() < 0.22){ const v = c.str - 11 + N0(3); return mkPlayer(pos, ri(17,19), v, c.str + ri(-3, 9) + (c.cat===1?3:0)); }
+    if(!first && R() < 0.22){ const v = c.str - 11 + N0(3); return mkPlayer(pos, ri(17,19), v, c.str + ri(-3, 9) + (c.cat===1?3:0), c); }
     const age = first ? ri(21,32) : ri(18,34), v = first ? c.str + N0(2.2) : c.str - 5 + N0(3);
-    return mkPlayer(pos, age, v, age<=23 ? v + ri(1,8) : v); });
+    return mkPlayer(pos, age, v, age<=23 ? v + ri(1,8) : v, c); });
   c.sq = sq;
   const d = c.str - squadStr(c); sq.forEach(p => { p.v = r1(p.v + d); p.t = r1(Math.max(p.t + d, p.v)); });
 }
@@ -77,7 +77,7 @@ function worldSeason(T){
   clubs.forEach(c => { const cnt = {}; c.sq.forEach(p => cnt[p.p] = (cnt[p.p]||0) + 1);
     const need = {}; SQ_POS.forEach(pos => need[pos] = (need[pos]||0) + 1);
     Object.keys(need).forEach(pos => { while((cnt[pos]||0) < need[pos]){ cnt[pos] = (cnt[pos]||0) + 1;
-      const v = c.str - 10 + N0(3), p = mkPlayer(pos, ri(17,18), v, c.str + ri(-2, 8) + (c.cat===1?4:c.cat===2?2:0)); c.sq.push(p);
+      const v = c.str - 10 + N0(3), p = mkPlayer(pos, ri(17,18), v, c.str + ri(-2, 8) + (c.cat===1?4:c.cat===2?2:0), c); c.sq.push(p);
       if(c.id===mine && p.t >= c.str+4) moves.push({ t:'youth', n:p.n, p:pos }); } }); });
   /* 5. 球會實力：一半由陣容決定 */
   clubs.forEach(c => { c.str = r1(c.str*0.5 + squadStr(c)*0.5); });

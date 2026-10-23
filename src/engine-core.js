@@ -22,11 +22,13 @@ const STR_BAND = { PL:[83,66], CH:[66,57], L1:[58,51], L2:[53,46], NL:[47,41], N
 const LG_CENTER = { PL:72, CH:61, L1:55, L2:50, NL:44, NON:36 };
 function initWorld(){
   const W = { clubs:{} };
-  LG_ORDER.forEach(lg => {
-    const list = CLUB_DATA.filter(c => c[2]===lg), [top,bot] = STR_BAND[lg];
-    list.forEach((c,i) => { W.clubs[c[0]] = { id:c[0], n:c[1], lg, reg:c[3], cat:c[4], str: r1(top-(top-bot)*i/(list.length-1)+N0(1.2)) }; });
-  });
+  LG_WORLD.forEach(lg => addClubsOf(W, lg));
   return W;
+}
+/* 按資料建立某聯賽的球會（舊存檔轉換時亦會用來補上新加入的海外球會） */
+function addClubsOf(W, lg){
+  const list = [...CLUB_DATA, ...CLUB_ABROAD].filter(c => c[2]===lg), [top,bot] = STR_BAND[lg];
+  list.forEach((c,i) => { if(W.clubs[c[0]]) return; W.clubs[c[0]] = { id:c[0], n:c[1], lg, reg:c[3], cat:c[4], str: r1(top-(top-bot)*i/Math.max(1,list.length-1)+N0(1.2)) }; if(c[5]) W.clubs[c[0]].city = c[5]; });
 }
 const club = id => S.W.clubs[id];
 const clubsIn = lg => Object.values(S.W.clubs).filter(c => c.lg===lg);
@@ -105,7 +107,7 @@ function fx(o){
   for(const k in o){
     const v = o[k];
     if(k in METER_N){ const t = meter(k, v); if(t) out.push(t); }
-    else if(k==='money'){ S.money = Math.max(0, S.money + v); out.push(`零用錢 ${v>0?'+':'−'}£${Math.abs(v)}`); }
+    else if(k==='money'){ S.money = Math.max(0, S.money + v); out.push(`${S.pro?'存款':'零用錢'} ${v>0?'+':'−'}£${Math.abs(v).toLocaleString('en-GB')}`); }
     else if(k==='trust'){ if(S.pro){ const o2=S.pro.trust; S.pro.trust=clamp(S.pro.trust+v,0,100); const d=S.pro.trust-o2; if(d) out.push(`主帥信任 ${d>0?'+':''}${d}`); } }
     else if(k in ATTR_N){ const g = train(k, v); if(g>0.05) out.push(`${ATTR_N[k]}進步`); else if(v<0){ S.ab[k]=Math.max(1,S.ab[k]+v); out.push(`${ATTR_N[k]}退步`); } }
   }
@@ -127,4 +129,8 @@ function growHeight(){
 function playPos(pos, amt){ S.fam[pos] = clamp((S.fam[pos]||0) + amt, 0, 1); POS_ORDER.forEach(p => { if(p!==pos) S.fam[p] = Math.max(0, (S.fam[p]||0) - amt*0.15); }); }
 
 /* ---------- 隊友名字 ---------- */
-function npcName(){ return `${pick(FIRST)}・${pick(LAST)}`; }
+/* 球員名字：cty 為國家代碼；'EN' 表示英格蘭球會（約一成半是外援）；不傳入時只用英國名字 */
+function npcName(cty){
+  const N = !cty ? [FIRST, LAST] : NAMES[cty] ? (R() < 0.75 ? NAMES[cty] : R() < 0.3 ? [FIRST, LAST] : pick(Object.values(NAMES))) : (R() < 0.15 ? pick(Object.values(NAMES)) : [FIRST, LAST]);
+  return `${pick(N[0])}・${pick(N[1])}`;
+}
