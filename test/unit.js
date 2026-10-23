@@ -34,4 +34,25 @@ ok('特技加成不超過上限', () => {
   const b = g.perkBonus({ k:'G', m:'bold', ab:['sho'] }, { stake:3, sub:true, trail:true, sc:'主罰十二碼' });
   assert.ok(b.v <= 14, `加成 ${b.v}`);
 });
+ok('海外生涯：加盟西甲後可以完成生涯，並記錄西甲數據', () => {
+  const vm = require('vm'); let R = null;
+  for(let i=0; i<20 && !R; i++){ const r = runCareer(i, { stopAt:S => S.stage==='PRO' && S.pro && !S.pro.semi && S.age>=21 && S.term===0 }); if(r.S.stage==='PRO' && !r.ended && r.S.age>=21) R = r; }
+  assert.ok(R, '找不到合適的職業生涯');
+  const G = R.G; vm.runInContext("contractNext = () => {}; sign(club('ERMA'), 4, 30000);", G.ctx);
+  let steps = 0; while(G.out.pending.length && !G.out.ended && steps < 60000){ G.out.pending.shift()(); steps++; }
+  const S = G.g().S;
+  assert.ok(G.out.ended, '生涯應該完結');
+  assert.ok(S.flags.wentAbroad, '應記錄曾經出國');
+  assert.ok(S.hist.some(r => r.lg==='ES' || r.club==='ERMA'), '應有西甲紀錄');
+  assert.ok(S.langs && S.langs.ES > 5, '語言應有進步');
+});
+ok('1.0 版存檔（v2）讀入後補上海外球會與積分榜', () => {
+  const vm = require('vm'); const r = runCareer(2, { stopAt:S => S.stage==='PRO' }), G = r.G, S = G.g().S;
+  Object.keys(S.W.clubs).filter(id => vm.runInContext(`isAbroadLg(S.W.clubs['${id}'].lg)`, G.ctx)).forEach(id => delete S.W.clubs[id]);
+  if(S.lt) ['ES','IT','DE','FR'].forEach(l => { delete S.lt.T[l]; delete S.lt.done[l]; });
+  S.v = 2; assert.ok(G.g().migrateS(S).ok);
+  assert.ok(S.W.clubs.ERMA && S.W.clubs.ERMA.lg==='ES', '應加入皇家馬德里');
+  assert.strictEqual(Object.values(S.W.clubs).filter(c => c.lg==='DE').length, 18);
+  if(S.lt) assert.ok(S.lt.T.ES && Object.keys(S.lt.T.ES).length===20, '應建立西甲積分榜');
+});
 console.log(`單元測試全部通過（${n} 項）`);

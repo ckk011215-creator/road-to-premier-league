@@ -12,6 +12,7 @@ for(let i=0;i<+(process.argv[2]||120);i++){ ended=null; pending=[];
   g.newGame({ seed:'lang'+i, first:g.FIRST[i%40], last:g.LAST[i%40], bm:i%12, fatherH:172+i%18, motherH:160+i%12, body:'even', foot:['R','L','B'][i%3], posTrait:['disc','big','fighter','cool','bold','leader'][i%6], negTrait:['lazy','nerves','fragile','hothead','shy','selfish'][(i+1)%6], city:cities[i%12], wealth:i%4, heritage:i%2?'none':['IRL','HKG','BR','NG','JP'][i%5], fav:'ARS', posPref:g.POS_ORDER[i%8] });
   ctx.__get().newTerm(); ctx.UI.idle(); let s=0; while(pending.length && !ended && s<20000){ pending.shift()(); s++; } }
 const marks = /[嘅係唔冇佢咗喺嚟啲嗰揀撳俾睇諗搵攞拎咁啱晒嘢乜仲瞓嬲畀噃喇吖囉啦㗎喎咩嘞攰甩郁黐掟慳蝕哋埋咪噉冚揸啩]/;
-const ALLOW = /Match of the Day|Category|GCSE|A\*|Scholarship|college|Boxing Day|U\d+|PL2|FA Youth Cup|FA Cup|PFA|BTEC|Distinction|St George's Park|VS|tiki-taka|Catenaccio|potrero|garra|£[\d.]+[km]?/g;
+const ALLOW = /AC 米蘭|Match of the Day|Category|GCSE|A\*|Scholarship|college|Boxing Day|U\d+|PL2|FA Youth Cup|FA Cup|PFA|BTEC|Distinction|St George's Park|VS|tiki-taka|Catenaccio|potrero|garra|£[\d.]+[km]?/g;
 const bad = [...texts].filter(t => marks.test(t.replace(/關係/g,'')) || /[A-Za-z]{2,}/.test(t.replace(ALLOW,'')));
 console.log('文字條目', texts.size, '有問題', bad.length); bad.slice(0,40).forEach(t => console.log(' ·', t.slice(0,140)));
+process.exit(bad.length ? 1 : 0);
