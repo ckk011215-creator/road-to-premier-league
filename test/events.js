@@ -39,9 +39,10 @@ for(const e of g.EVENTS){
   const stage = abroadEv(e) ? 'ABR' : e.st.find(s => snaps[s]) || e.st[0];
   const age = Math.max(e.a[0], Math.min(e.a[1], ({ GR:9, ACA:13, SCH:17, PRO:26, ABR:27 })[stage]));
   /* 每個選項：成功一次、失敗一次 */
-  const nOpts = (() => { const S = JSON.parse(snaps[stage]); S.age = age; S.money = 1e7; g.setS(S); try { return e.o().length; } catch(err){ if(condOk(e)) fail(e, err.message); else skipped++; return 0; } })();
+  const injOn = S => { if(e.inj) S.inj = { w:8, n:'大腿後肌拉傷', sev:'major' }; if(e.inj && S.stage==='PRO' && !S.season) S.season = { inj:0 }; };
+  const nOpts = (() => { const S = JSON.parse(snaps[stage]); S.age = age; S.money = 1e7; injOn(S); g.setS(S); try { return e.o().length; } catch(err){ if(condOk(e)) fail(e, err.message); else skipped++; return 0; } })();
   for(let k = 0; k < nOpts; k++) for(const luck of [true, false]){
-    const S = JSON.parse(snaps[stage]); S.age = age; S.money = 1e7; S.evq = []; g.setS(S);
+    const S = JSON.parse(snaps[stage]); S.age = age; S.money = 1e7; S.evq = []; injOn(S); g.setS(S);
     g.setChance(p => luck);
     try {
       add(e.t); add(e.d());
