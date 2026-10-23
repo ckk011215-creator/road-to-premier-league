@@ -7,7 +7,7 @@ create table if not exists public.scores (
   score int not null check (score between 0 and 10000),
   tier text not null check (char_length(tier) <= 12),
   pos text check (char_length(pos) <= 8),
-  diff text not null default 'normal' check (diff in ('easy','normal','hard')),
+  diff text not null default 'normal' check (diff in ('easy','normal','hard','real')),
   pl_apps int check (pl_apps between 0 and 1000),
   goals int check (goals between 0 and 2000),
   caps int check (caps between 0 and 300),
